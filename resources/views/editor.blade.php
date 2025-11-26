@@ -346,6 +346,9 @@
         // CSRF token setup for all AJAX requests
         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
+        // Get base URL for API calls (handles subdirectory installations)
+        const baseUrl = '{{ url("/") }}';
+
         // State management
         let selectedElement = null;
         let currentUrl = null;
@@ -378,7 +381,7 @@
             loadBtn.disabled = true;
 
             try {
-                const response = await fetch('/index.php/proxy', {
+                const response = await fetch(`${baseUrl}/proxy`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -505,7 +508,7 @@
             hideError();
 
             try {
-                const response = await fetch('/index.php/edit-section', {
+                const response = await fetch(`${baseUrl}/edit-section`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
