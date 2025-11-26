@@ -94,16 +94,25 @@ class WebsiteEditorController extends Controller
         $customScript = <<<'EOT'
 <style id="editor-styles">
     .editor-selectable-section {
-        cursor: pointer;
-        transition: all 0.2s ease;
+        cursor: pointer !important;
+        transition: outline 0.2s ease !important;
+        pointer-events: auto !important;
     }
     .editor-selectable-section:hover {
-        outline: 2px solid #3B82F6 !important;
-        outline-offset: 2px;
+        outline: 3px solid #3B82F6 !important;
+        outline-offset: 2px !important;
+        z-index: 9998 !important;
+        position: relative !important;
     }
     .editor-selectable-section.selected {
-        outline: 3px solid #10B981 !important;
-        outline-offset: 2px;
+        outline: 4px solid #10B981 !important;
+        outline-offset: 2px !important;
+        z-index: 9999 !important;
+        position: relative !important;
+    }
+    /* Override common blocking styles */
+    .editor-selectable-section * {
+        pointer-events: auto !important;
     }
 </style>
 <script id="editor-script">
@@ -123,17 +132,19 @@ EOT;
     {
         $request->validate([
             'html' => 'required|string',
-            'prompt' => 'required|string'
+            'prompt' => 'required|string',
+            'api_key' => 'required|string'
         ]);
 
         $html = $request->input('html');
         $prompt = $request->input('prompt');
-        $apiKey = env('ANTHROPIC_API_KEY');
+        $apiKey = $request->input('api_key');
 
-        if (!$apiKey) {
+        // Basic validation for Anthropic API key format
+        if (!str_starts_with($apiKey, 'sk-ant-')) {
             return response()->json([
-                'error' => 'ANTHROPIC_API_KEY not configured in .env file'
-            ], 500);
+                'error' => 'Invalid API key format. Key should start with sk-ant-'
+            ], 400);
         }
 
         try {
