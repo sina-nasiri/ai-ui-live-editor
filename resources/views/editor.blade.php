@@ -655,6 +655,135 @@
             font-weight: 500;
         }
 
+        /* Settings Modal */
+        .settings-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 24px;
+        }
+
+        .settings-modal.active {
+            display: flex;
+        }
+
+        .settings-content {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 480px;
+            box-shadow: var(--shadow-xl);
+        }
+
+        .settings-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .settings-title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .settings-body {
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--gray-700);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            transition: all 0.2s;
+            background: var(--gray-50);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: var(--gray-500);
+            margin-top: 8px;
+        }
+
+        .form-hint a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .form-hint a:hover {
+            text-decoration: underline;
+        }
+
+        .settings-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .api-key-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: var(--gray-100);
+            color: var(--gray-600);
+        }
+
+        .api-key-status.configured {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+        }
+
+        .api-key-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--gray-400);
+        }
+
+        .api-key-status.configured .api-key-status-dot {
+            background: var(--success);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .navbar {
@@ -709,6 +838,16 @@
         </form>
 
         <div class="nav-actions">
+            <div class="api-key-status" id="apiKeyStatus">
+                <div class="api-key-status-dot"></div>
+                <span>No API Key</span>
+            </div>
+            <button class="btn btn-icon" id="settingsToggle" title="Settings">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+            </button>
             <div class="help-wrapper">
                 <button class="btn btn-icon" id="helpToggle" title="Help">
                     <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -730,6 +869,50 @@
             </div>
         </div>
     </nav>
+
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-content">
+            <div class="settings-header">
+                <div class="settings-title">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    Settings
+                </div>
+                <button class="modal-close" id="settingsClose">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="settings-body">
+                <div class="form-group">
+                    <label class="form-label" for="apiKeyInput">Anthropic API Key</label>
+                    <input
+                        type="password"
+                        class="form-input"
+                        id="apiKeyInput"
+                        placeholder="sk-ant-api03-..."
+                    >
+                    <p class="form-hint">
+                        Get your API key from <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>
+                        <br>Your key is stored locally in your browser and never sent to our servers.
+                    </p>
+                </div>
+            </div>
+            <div class="settings-footer">
+                <button class="btn btn-secondary" id="settingsCancelBtn">Cancel</button>
+                <button class="btn btn-success" id="settingsSaveBtn">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Main Content -->
     <main class="main-content">
@@ -844,6 +1027,7 @@
         // Configuration
         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
         const baseUrl = '{{ url("/") }}';
+        const API_KEY_STORAGE_KEY = 'anthropic_api_key';
 
         // State
         let selectedElement = null;
@@ -869,8 +1053,73 @@
             helpToggle: document.getElementById('helpToggle'),
             helpDropdown: document.getElementById('helpDropdown'),
             processingOverlay: document.getElementById('processingOverlay'),
-            toastContainer: document.getElementById('toastContainer')
+            toastContainer: document.getElementById('toastContainer'),
+            settingsToggle: document.getElementById('settingsToggle'),
+            settingsModal: document.getElementById('settingsModal'),
+            settingsClose: document.getElementById('settingsClose'),
+            settingsCancelBtn: document.getElementById('settingsCancelBtn'),
+            settingsSaveBtn: document.getElementById('settingsSaveBtn'),
+            apiKeyInput: document.getElementById('apiKeyInput'),
+            apiKeyStatus: document.getElementById('apiKeyStatus')
         };
+
+        // API Key Management
+        function getApiKey() {
+            return localStorage.getItem(API_KEY_STORAGE_KEY) || '';
+        }
+
+        function saveApiKey(key) {
+            if (key) {
+                localStorage.setItem(API_KEY_STORAGE_KEY, key);
+            } else {
+                localStorage.removeItem(API_KEY_STORAGE_KEY);
+            }
+            updateApiKeyStatus();
+        }
+
+        function updateApiKeyStatus() {
+            const key = getApiKey();
+            if (key) {
+                elements.apiKeyStatus.classList.add('configured');
+                elements.apiKeyStatus.querySelector('span').textContent = 'API Key Set';
+            } else {
+                elements.apiKeyStatus.classList.remove('configured');
+                elements.apiKeyStatus.querySelector('span').textContent = 'No API Key';
+            }
+        }
+
+        // Settings Modal
+        function openSettings() {
+            elements.settingsModal.classList.add('active');
+            elements.apiKeyInput.value = getApiKey();
+            elements.apiKeyInput.focus();
+        }
+
+        function closeSettings() {
+            elements.settingsModal.classList.remove('active');
+            elements.apiKeyInput.value = '';
+        }
+
+        elements.settingsToggle.addEventListener('click', openSettings);
+        elements.settingsClose.addEventListener('click', closeSettings);
+        elements.settingsCancelBtn.addEventListener('click', closeSettings);
+        elements.settingsModal.addEventListener('click', (e) => {
+            if (e.target === elements.settingsModal) closeSettings();
+        });
+
+        elements.settingsSaveBtn.addEventListener('click', () => {
+            const key = elements.apiKeyInput.value.trim();
+            saveApiKey(key);
+            closeSettings();
+            if (key) {
+                showToast('API key saved successfully!', 'success');
+            } else {
+                showToast('API key removed', 'info');
+            }
+        });
+
+        // Initialize API key status on load
+        updateApiKeyStatus();
 
         // Toast System
         function showToast(message, type = 'info', duration = 4000) {
@@ -1111,6 +1360,13 @@
                 return;
             }
 
+            const apiKey = getApiKey();
+            if (!apiKey) {
+                showToast('Please set your API key in Settings first', 'warning');
+                openSettings();
+                return;
+            }
+
             const prompt = elements.promptInput.value.trim();
             const htmlContent = selectedElement.outerHTML;
 
@@ -1125,7 +1381,7 @@
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': csrfToken
                     },
-                    body: JSON.stringify({ html: htmlContent, prompt })
+                    body: JSON.stringify({ html: htmlContent, prompt, api_key: apiKey })
                 });
 
                 const contentType = response.headers.get('content-type');

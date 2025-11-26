@@ -123,17 +123,19 @@ EOT;
     {
         $request->validate([
             'html' => 'required|string',
-            'prompt' => 'required|string'
+            'prompt' => 'required|string',
+            'api_key' => 'required|string'
         ]);
 
         $html = $request->input('html');
         $prompt = $request->input('prompt');
-        $apiKey = env('ANTHROPIC_API_KEY');
+        $apiKey = $request->input('api_key');
 
-        if (!$apiKey) {
+        // Basic validation for Anthropic API key format
+        if (!str_starts_with($apiKey, 'sk-ant-')) {
             return response()->json([
-                'error' => 'ANTHROPIC_API_KEY not configured in .env file'
-            ], 500);
+                'error' => 'Invalid API key format. Key should start with sk-ant-'
+            ], 400);
         }
 
         try {
