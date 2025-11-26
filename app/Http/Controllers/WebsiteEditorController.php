@@ -138,12 +138,12 @@ EOT;
 
         try {
             // Call Claude API
-            $response = Http::withHeaders([
+            $response = Http::timeout(60)->withHeaders([
                 'Content-Type' => 'application/json',
                 'x-api-key' => $apiKey,
                 'anthropic-version' => '2023-06-01'
             ])->post('https://api.anthropic.com/v1/messages', [
-                'model' => 'claude-3-5-sonnet-20241022',
+                'model' => 'claude-sonnet-4-5-20250929',
                 'max_tokens' => 4096,
                 'messages' => [
                     [
@@ -154,9 +154,11 @@ EOT;
             ]);
 
             if (!$response->successful()) {
+                $errorBody = $response->json();
+                $errorMessage = $errorBody['error']['message'] ?? $response->body();
                 Log::error('Claude API error: ' . $response->body());
                 return response()->json([
-                    'error' => 'Claude API error: ' . $response->status()
+                    'error' => 'Claude API error: ' . $errorMessage
                 ], 500);
             }
 
