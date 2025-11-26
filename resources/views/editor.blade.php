@@ -378,7 +378,7 @@
             loadBtn.disabled = true;
 
             try {
-                const response = await fetch('/proxy', {
+                const response = await fetch('/index.php/proxy', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -505,7 +505,7 @@
             hideError();
 
             try {
-                const response = await fetch('/edit-section', {
+                const response = await fetch('/index.php/edit-section', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
