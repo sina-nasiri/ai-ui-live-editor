@@ -382,14 +382,28 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json, text/html',
                         'X-CSRF-TOKEN': csrfToken
                     },
                     body: JSON.stringify({ url })
                 });
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to load website');
+                    let errorMessage = 'Failed to load website';
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            const error = await response.json();
+                            errorMessage = error.error || error.message || errorMessage;
+                        } catch (e) {
+                            // JSON parsing failed, use default message
+                        }
+                    } else {
+                        // Response is not JSON (likely HTML error page)
+                        const text = await response.text();
+                        console.error('Server returned non-JSON error:', text);
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 const html = await response.text();
@@ -495,6 +509,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Accept': 'application/json',
                         'X-CSRF-TOKEN': csrfToken
                     },
                     body: JSON.stringify({
@@ -503,9 +518,27 @@
                     })
                 });
 
+                const contentType = response.headers.get('content-type');
+
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to process AI request');
+                    let errorMessage = 'Failed to process AI request';
+                    if (contentType && contentType.includes('application/json')) {
+                        try {
+                            const error = await response.json();
+                            errorMessage = error.error || error.message || errorMessage;
+                        } catch (e) {
+                            // JSON parsing failed, use default message
+                        }
+                    } else {
+                        // Response is not JSON (likely HTML error page)
+                        const text = await response.text();
+                        console.error('Server returned non-JSON error:', text);
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('Server returned unexpected response format');
                 }
 
                 const result = await response.json();
