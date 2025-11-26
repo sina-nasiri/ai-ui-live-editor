@@ -1419,13 +1419,37 @@
                 const result = await response.json();
 
                 if (result.success && result.html) {
+                    const iframeDoc = elements.previewFrame.contentDocument;
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = result.html;
-                    const newElement = tempDiv.firstElementChild;
+
+                    // Extract and inject any style tags into iframe head
+                    const styleTags = tempDiv.querySelectorAll('style');
+                    styleTags.forEach(style => {
+                        const newStyle = iframeDoc.createElement('style');
+                        newStyle.textContent = style.textContent;
+                        newStyle.id = 'ai-injected-style-' + Date.now();
+                        iframeDoc.head.appendChild(newStyle);
+                        style.remove();
+                    });
+
+                    // Get the main element (first non-style element)
+                    let newElement = tempDiv.firstElementChild;
+                    while (newElement && newElement.tagName === 'STYLE') {
+                        newElement = newElement.nextElementSibling;
+                    }
+
+                    if (!newElement) {
+                        // If only text/inline content, wrap it
+                        newElement = document.createElement('div');
+                        newElement.innerHTML = tempDiv.innerHTML;
+                    }
 
                     selectedElement.parentNode.replaceChild(newElement, selectedElement);
                     selectedElement = newElement;
 
+                    // Mark as processed and make selectable
+                    newElement.dataset.editorProcessed = 'true';
                     newElement.classList.add('editor-selectable-section', 'selected');
                     newElement.addEventListener('click', (e) => {
                         e.preventDefault();

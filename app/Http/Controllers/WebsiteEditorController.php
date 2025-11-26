@@ -159,7 +159,22 @@ EOT;
                 'messages' => [
                     [
                         'role' => 'user',
-                        'content' => "You are a UI/UX expert. I will provide you with an HTML section and a prompt describing how to modify it. Please return ONLY the modified HTML, without any explanation or markdown formatting.\n\nOriginal HTML:\n```html\n{$html}\n```\n\nModification Request:\n{$prompt}\n\nReturn only the modified HTML:"
+                        'content' => "You are a UI/UX expert. I will provide you with an HTML section and a prompt describing how to modify it.
+
+IMPORTANT RULES:
+1. Use INLINE STYLES (style=\"...\") for all CSS changes - do NOT use <style> tags or external CSS classes
+2. Keep existing class names but add inline styles to override them
+3. Return ONLY the modified HTML element, no explanation or markdown
+4. Preserve the original structure and attributes as much as possible
+
+Original HTML:
+```html
+{$html}
+```
+
+Modification Request: {$prompt}
+
+Return only the modified HTML with inline styles:"
                     ]
                 ]
             ]);
