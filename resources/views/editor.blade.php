@@ -1224,7 +1224,13 @@
             elements.previewFrame.style.display = 'block';
             const blob = new Blob([html], { type: 'text/html' });
             const blobUrl = URL.createObjectURL(blob);
-            elements.previewFrame.onload = initializeEditor;
+            elements.previewFrame.onload = () => {
+                // Wait for dynamic content to load, then initialize
+                setTimeout(() => initializeEditor(), 500);
+                // Re-initialize after more time for slow-loading content
+                setTimeout(() => initializeEditor(), 1500);
+                setTimeout(() => initializeEditor(), 3000);
+            };
             elements.previewFrame.src = blobUrl;
         }
 
@@ -1236,18 +1242,29 @@
                 if (!iframeBody) return;
 
                 const allElements = iframeBody.querySelectorAll('*');
+                let selectableCount = 0;
 
                 allElements.forEach(element => {
+                    // Skip if already processed
+                    if (element.dataset.editorProcessed) return;
+
                     const tagName = element.tagName.toLowerCase();
-                    if (['script', 'style', 'link', 'meta', 'head', 'html', 'br', 'hr', 'noscript', 'base'].includes(tagName)) return;
+                    if (['script', 'style', 'link', 'meta', 'head', 'html', 'br', 'hr', 'noscript', 'base', 'svg', 'path', 'circle', 'rect', 'line', 'polygon', 'polyline', 'ellipse', 'g', 'defs', 'use', 'symbol', 'clippath', 'mask'].includes(tagName)) return;
                     if (element.id === 'editor-styles' || element.id === 'editor-script') return;
 
                     const rect = element.getBoundingClientRect();
                     const style = window.getComputedStyle(element);
                     if (rect.width < 20 || rect.height < 20) return;
-                    if (style.display === 'none' || style.visibility === 'hidden') return;
+                    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return;
+
+                    // Mark as processed
+                    element.dataset.editorProcessed = 'true';
+
+                    // Force pointer events
+                    element.style.pointerEvents = 'auto';
 
                     element.classList.add('editor-selectable-section');
+                    selectableCount++;
 
                     element.addEventListener('click', (e) => {
                         e.preventDefault();
@@ -1255,6 +1272,10 @@
                         selectElement(element);
                     });
                 });
+
+                if (selectableCount > 0) {
+                    console.log(`Editor: Made ${selectableCount} elements selectable`);
+                }
 
             } catch (error) {
                 console.error('Editor init error:', error);
