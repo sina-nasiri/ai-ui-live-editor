@@ -30,9 +30,22 @@ class WebsiteEditorController extends Controller
         try {
             $response = Http::timeout(30)
                 ->withHeaders([
-                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language' => 'en-US,en;q=0.5',
+                    'Accept-Encoding' => 'gzip, deflate',
+                    'Connection' => 'keep-alive',
+                    'Upgrade-Insecure-Requests' => '1',
+                ])
+                ->withOptions([
+                    'allow_redirects' => true,
+                    'verify' => false, // Skip SSL verification for some problematic sites
                 ])
                 ->get($url);
+
+            if (!$response->successful()) {
+                throw new \Exception('Website returned status code: ' . $response->status());
+            }
 
             // Get the HTML content
             $html = $response->body();
@@ -56,9 +69,26 @@ class WebsiteEditorController extends Controller
      */
     private function processHtml($html, $baseUrl)
     {
-        // Add base tag to resolve relative URLs
-        $baseTag = '<base href="' . $baseUrl . '">';
+        // Parse the URL to get the origin (protocol + domain)
+        $parsedUrl = parse_url($baseUrl);
+        $origin = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
+        if (isset($parsedUrl['port'])) {
+            $origin .= ':' . $parsedUrl['port'];
+        }
+
+        // Use the full URL as base to handle relative paths correctly
+        // Remove any existing base tags first
+        $html = preg_replace('/<base[^>]*>/i', '', $html);
+
+        // Add our base tag
+        $baseTag = '<base href="' . htmlspecialchars($baseUrl) . '" target="_self">';
         $html = preg_replace('/(<head[^>]*>)/i', '$1' . $baseTag, $html);
+
+        // Convert protocol-relative URLs to absolute URLs
+        $html = preg_replace('/(["\'])(\/\/[^"\']+)(["\'])/', '$1' . $parsedUrl['scheme'] . ':$2$3', $html);
+
+        // Convert root-relative URLs for src and href attributes to absolute
+        $html = preg_replace('/(src|href)=(["\'])\/([^\/][^"\']*)\2/i', '$1=$2' . $origin . '/$3$2', $html);
 
         // Add our custom CSS and JS for the editor
         $customScript = <<<'EOT'
