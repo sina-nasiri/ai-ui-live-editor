@@ -20,7 +20,7 @@
         .top-bar {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
+            padding: 15px 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             position: fixed;
             top: 0;
@@ -29,15 +29,85 @@
             z-index: 1000;
         }
 
+        .top-bar-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
         .top-bar h1 {
-            font-size: 24px;
-            margin-bottom: 15px;
+            font-size: 20px;
+            margin: 0;
+            white-space: nowrap;
         }
 
         .url-form {
             display: flex;
             gap: 10px;
-            max-width: 800px;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .help-toggle {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .help-toggle:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .help-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 20px;
+            background: white;
+            color: #333;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            min-width: 280px;
+            margin-top: 10px;
+            z-index: 1001;
+        }
+
+        .help-dropdown.open {
+            display: block;
+        }
+
+        .help-dropdown h4 {
+            color: #0c4a6e;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+
+        .help-dropdown ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 13px;
+        }
+
+        .help-dropdown li {
+            color: #0369a1;
+            padding: 4px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .help-dropdown li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
         }
 
         .url-input {
@@ -77,7 +147,7 @@
         }
 
         .content-area {
-            margin-top: 120px;
+            margin-top: 80px;
             padding: 20px;
         }
 
@@ -244,109 +314,40 @@
             font-size: 16px;
         }
 
-        .instructions {
-            background: #f0f9ff;
-            border: 2px solid #0ea5e9;
-            border-radius: 8px;
-            padding: 15px 20px;
-            margin: 20px;
-        }
-
-        .instructions-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-        }
-
-        .instructions h4 {
-            color: #0c4a6e;
-            margin: 0;
-            font-size: 16px;
-        }
-
-        .instructions-toggle {
-            background: none;
-            border: none;
-            color: #0369a1;
-            font-size: 20px;
-            cursor: pointer;
-            padding: 0 5px;
-            transition: transform 0.3s ease;
-        }
-
-        .instructions-toggle.collapsed {
-            transform: rotate(-90deg);
-        }
-
-        .instructions-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease, margin-top 0.3s ease;
-            margin-top: 0;
-        }
-
-        .instructions-content.open {
-            max-height: 200px;
-            margin-top: 10px;
-        }
-
-        .instructions ul {
-            list-style: none;
-            padding-left: 0;
-            margin: 0;
-        }
-
-        .instructions li {
-            color: #0369a1;
-            padding: 5px 0;
-            padding-left: 25px;
-            position: relative;
-        }
-
-        .instructions li:before {
-            content: "→";
-            position: absolute;
-            left: 0;
-            font-weight: bold;
-        }
     </style>
 </head>
 <body>
     <div class="top-bar">
-        <h1>AI UI Live Editor</h1>
-        <form class="url-form" id="urlForm">
-            <input
-                type="url"
-                class="url-input"
-                id="urlInput"
-                placeholder="Enter website URL (e.g., https://example.com)"
-                required
-            >
-            <button type="submit" class="btn btn-primary" id="loadBtn">
-                Load Website
-            </button>
-        </form>
+        <div class="top-bar-content">
+            <h1>AI UI Live Editor</h1>
+            <form class="url-form" id="urlForm">
+                <input
+                    type="url"
+                    class="url-input"
+                    id="urlInput"
+                    placeholder="Enter website URL (e.g., https://example.com)"
+                    required
+                >
+                <button type="submit" class="btn btn-primary" id="loadBtn">
+                    Load Website
+                </button>
+            </form>
+            <button class="help-toggle" id="helpToggle">? Help</button>
+        </div>
+        <div class="help-dropdown" id="helpDropdown">
+            <h4>How to use:</h4>
+            <ul>
+                <li>Enter a website URL and click "Load Website"</li>
+                <li>Hover over any element to see it highlighted</li>
+                <li>Click on an element to select it</li>
+                <li>Describe your desired changes in the prompt box</li>
+                <li>Click "Apply Changes" to see AI-powered modifications</li>
+            </ul>
+        </div>
     </div>
 
     <div class="content-area">
         <div class="error-message" id="errorMessage"></div>
-
-        <div class="instructions">
-            <div class="instructions-header" id="instructionsHeader">
-                <h4>How to use</h4>
-                <button class="instructions-toggle collapsed" id="instructionsToggle">▼</button>
-            </div>
-            <div class="instructions-content" id="instructionsContent">
-                <ul>
-                    <li>Enter a website URL and click "Load Website"</li>
-                    <li>Hover over any section to see it highlighted</li>
-                    <li>Click on a section to select it</li>
-                    <li>Describe your desired changes in the prompt box</li>
-                    <li>Click "Apply Changes" to see AI-powered modifications in real-time</li>
-                </ul>
-            </div>
-        </div>
 
         <div class="editor-frame">
             <div class="loading" id="loading">
@@ -388,14 +389,19 @@
         // Get base URL for API calls (handles subdirectory installations)
         const baseUrl = '{{ url("/") }}';
 
-        // Instructions toggle (collapsed by default)
-        const instructionsHeader = document.getElementById('instructionsHeader');
-        const instructionsToggle = document.getElementById('instructionsToggle');
-        const instructionsContent = document.getElementById('instructionsContent');
+        // Help dropdown toggle
+        const helpToggle = document.getElementById('helpToggle');
+        const helpDropdown = document.getElementById('helpDropdown');
 
-        instructionsHeader.addEventListener('click', () => {
-            instructionsContent.classList.toggle('open');
-            instructionsToggle.classList.toggle('collapsed');
+        helpToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            helpDropdown.classList.toggle('open');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!helpDropdown.contains(e.target) && e.target !== helpToggle) {
+                helpDropdown.classList.remove('open');
+            }
         });
 
         // State management
@@ -494,13 +500,22 @@
 
                 if (!iframeBody) return;
 
-                // Make all major sections selectable
-                const selectableElements = iframeBody.querySelectorAll('header, nav, main, section, article, aside, footer, div[class*="container"], div[class*="wrapper"], div[class*="section"]');
+                // Make all visible elements selectable
+                const allElements = iframeBody.querySelectorAll('*');
 
-                selectableElements.forEach(element => {
+                allElements.forEach(element => {
+                    // Skip script, style, and other non-visual elements
+                    const tagName = element.tagName.toLowerCase();
+                    if (['script', 'style', 'link', 'meta', 'head', 'html', 'br', 'hr', 'noscript'].includes(tagName)) return;
+
+                    // Skip our injected editor elements
+                    if (element.id === 'editor-styles' || element.id === 'editor-script') return;
+
                     // Skip if element is too small or hidden
                     const rect = element.getBoundingClientRect();
-                    if (rect.width < 50 || rect.height < 50) return;
+                    const style = window.getComputedStyle(element);
+                    if (rect.width < 20 || rect.height < 20) return;
+                    if (style.display === 'none' || style.visibility === 'hidden') return;
 
                     element.classList.add('editor-selectable-section');
 
