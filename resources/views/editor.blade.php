@@ -248,19 +248,53 @@
             background: #f0f9ff;
             border: 2px solid #0ea5e9;
             border-radius: 8px;
-            padding: 20px;
+            padding: 15px 20px;
             margin: 20px;
+        }
+
+        .instructions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
         }
 
         .instructions h4 {
             color: #0c4a6e;
-            margin-bottom: 10px;
+            margin: 0;
             font-size: 16px;
+        }
+
+        .instructions-toggle {
+            background: none;
+            border: none;
+            color: #0369a1;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 5px;
+            transition: transform 0.3s ease;
+        }
+
+        .instructions-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .instructions-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, margin-top 0.3s ease;
+            margin-top: 0;
+        }
+
+        .instructions-content.open {
+            max-height: 200px;
+            margin-top: 10px;
         }
 
         .instructions ul {
             list-style: none;
             padding-left: 0;
+            margin: 0;
         }
 
         .instructions li {
@@ -299,14 +333,19 @@
         <div class="error-message" id="errorMessage"></div>
 
         <div class="instructions">
-            <h4>How to use:</h4>
-            <ul>
-                <li>Enter a website URL and click "Load Website"</li>
-                <li>Hover over any section to see it highlighted</li>
-                <li>Click on a section to select it</li>
-                <li>Describe your desired changes in the prompt box</li>
-                <li>Click "Apply Changes" to see AI-powered modifications in real-time</li>
-            </ul>
+            <div class="instructions-header" id="instructionsHeader">
+                <h4>How to use</h4>
+                <button class="instructions-toggle collapsed" id="instructionsToggle">▼</button>
+            </div>
+            <div class="instructions-content" id="instructionsContent">
+                <ul>
+                    <li>Enter a website URL and click "Load Website"</li>
+                    <li>Hover over any section to see it highlighted</li>
+                    <li>Click on a section to select it</li>
+                    <li>Describe your desired changes in the prompt box</li>
+                    <li>Click "Apply Changes" to see AI-powered modifications in real-time</li>
+                </ul>
+            </div>
         </div>
 
         <div class="editor-frame">
@@ -348,6 +387,16 @@
 
         // Get base URL for API calls (handles subdirectory installations)
         const baseUrl = '{{ url("/") }}';
+
+        // Instructions toggle (collapsed by default)
+        const instructionsHeader = document.getElementById('instructionsHeader');
+        const instructionsToggle = document.getElementById('instructionsToggle');
+        const instructionsContent = document.getElementById('instructionsContent');
+
+        instructionsHeader.addEventListener('click', () => {
+            instructionsContent.classList.toggle('open');
+            instructionsToggle.classList.toggle('collapsed');
+        });
 
         // State management
         let selectedElement = null;
