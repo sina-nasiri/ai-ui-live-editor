@@ -1893,6 +1893,160 @@
             });
         });
 
+        // Extract theme/style context from the page
+        function extractThemeContext(element) {
+            const iframeDoc = elements.previewFrame.contentDocument;
+            const iframeWindow = elements.previewFrame.contentWindow;
+
+            const theme = {
+                cssVariables: {},
+                elementStyles: {},
+                bodyStyles: {},
+                headingStyles: {},
+                linkStyles: {}
+            };
+
+            try {
+                // Extract CSS custom properties from :root
+                const rootStyles = iframeWindow.getComputedStyle(iframeDoc.documentElement);
+                const cssVarProperties = [
+                    '--primary', '--primary-color', '--secondary', '--accent',
+                    '--background', '--bg-color', '--text-color', '--heading-color',
+                    '--font-family', '--font-size', '--border-radius', '--spacing',
+                    '--success', '--error', '--warning', '--info',
+                    '--gray', '--dark', '--light', '--white', '--black'
+                ];
+
+                // Get all CSS variables
+                for (const prop of cssVarProperties) {
+                    const value = rootStyles.getPropertyValue(prop).trim();
+                    if (value) {
+                        theme.cssVariables[prop] = value;
+                    }
+                }
+
+                // Also scan for any --* variables in stylesheets
+                try {
+                    for (const sheet of iframeDoc.styleSheets) {
+                        try {
+                            for (const rule of sheet.cssRules) {
+                                if (rule.style) {
+                                    for (let i = 0; i < rule.style.length; i++) {
+                                        const prop = rule.style[i];
+                                        if (prop.startsWith('--')) {
+                                            const value = rule.style.getPropertyValue(prop).trim();
+                                            if (value && !theme.cssVariables[prop]) {
+                                                theme.cssVariables[prop] = value;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e) { /* cross-origin stylesheet */ }
+                    }
+                } catch (e) { /* stylesheet access error */ }
+
+                // Get computed styles of the selected element
+                const computedStyle = iframeWindow.getComputedStyle(element);
+                theme.elementStyles = {
+                    fontFamily: computedStyle.fontFamily,
+                    fontSize: computedStyle.fontSize,
+                    fontWeight: computedStyle.fontWeight,
+                    lineHeight: computedStyle.lineHeight,
+                    color: computedStyle.color,
+                    backgroundColor: computedStyle.backgroundColor,
+                    padding: computedStyle.padding,
+                    margin: computedStyle.margin,
+                    borderRadius: computedStyle.borderRadius
+                };
+
+                // Get body styles for general theme
+                const bodyStyle = iframeWindow.getComputedStyle(iframeDoc.body);
+                theme.bodyStyles = {
+                    fontFamily: bodyStyle.fontFamily,
+                    fontSize: bodyStyle.fontSize,
+                    color: bodyStyle.color,
+                    backgroundColor: bodyStyle.backgroundColor
+                };
+
+                // Get heading styles if any headings exist
+                const h1 = iframeDoc.querySelector('h1');
+                const h2 = iframeDoc.querySelector('h2');
+                const h3 = iframeDoc.querySelector('h3');
+                if (h1 || h2 || h3) {
+                    const heading = h1 || h2 || h3;
+                    const headingStyle = iframeWindow.getComputedStyle(heading);
+                    theme.headingStyles = {
+                        fontFamily: headingStyle.fontFamily,
+                        fontWeight: headingStyle.fontWeight,
+                        color: headingStyle.color
+                    };
+                }
+
+                // Get link styles
+                const link = iframeDoc.querySelector('a');
+                if (link) {
+                    const linkStyle = iframeWindow.getComputedStyle(link);
+                    theme.linkStyles = {
+                        color: linkStyle.color,
+                        textDecoration: linkStyle.textDecoration
+                    };
+                }
+
+            } catch (e) {
+                console.error('Error extracting theme:', e);
+            }
+
+            return theme;
+        }
+
+        // Format theme context for AI prompt
+        function formatThemeForPrompt(theme) {
+            let context = '';
+
+            // CSS Variables
+            const varKeys = Object.keys(theme.cssVariables);
+            if (varKeys.length > 0) {
+                context += 'CSS Variables:\n';
+                varKeys.slice(0, 20).forEach(key => {
+                    context += `  ${key}: ${theme.cssVariables[key]}\n`;
+                });
+            }
+
+            // Body/General styles
+            if (theme.bodyStyles.fontFamily) {
+                context += `\nGeneral Theme:\n`;
+                context += `  Font: ${theme.bodyStyles.fontFamily}\n`;
+                context += `  Text Color: ${theme.bodyStyles.color}\n`;
+                context += `  Background: ${theme.bodyStyles.backgroundColor}\n`;
+            }
+
+            // Heading styles
+            if (theme.headingStyles && theme.headingStyles.color) {
+                context += `\nHeading Style:\n`;
+                context += `  Font: ${theme.headingStyles.fontFamily}\n`;
+                context += `  Weight: ${theme.headingStyles.fontWeight}\n`;
+                context += `  Color: ${theme.headingStyles.color}\n`;
+            }
+
+            // Link styles
+            if (theme.linkStyles && theme.linkStyles.color) {
+                context += `\nLink Style:\n`;
+                context += `  Color: ${theme.linkStyles.color}\n`;
+            }
+
+            // Current element styles
+            if (theme.elementStyles.fontFamily) {
+                context += `\nSelected Element Current Styles:\n`;
+                context += `  Font: ${theme.elementStyles.fontFamily}\n`;
+                context += `  Size: ${theme.elementStyles.fontSize}\n`;
+                context += `  Color: ${theme.elementStyles.color}\n`;
+                context += `  Background: ${theme.elementStyles.backgroundColor}\n`;
+            }
+
+            return context || 'No theme context available';
+        }
+
         // Apply Changes
         async function applyChanges() {
             if (!selectedElement || !elements.promptInput.value.trim()) {
@@ -1908,6 +2062,10 @@
             }
 
             const prompt = elements.promptInput.value.trim();
+
+            // Extract theme context from the page
+            const theme = extractThemeContext(selectedElement);
+            const themeContext = formatThemeForPrompt(theme);
 
             // Clone element and clean up editor-specific attributes/classes
             const cleanElement = selectedElement.cloneNode(true);
@@ -1959,7 +2117,7 @@
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': csrfToken
                     },
-                    body: JSON.stringify({ html: htmlContent, prompt, api_key: apiKey })
+                    body: JSON.stringify({ html: htmlContent, prompt, api_key: apiKey, theme_context: themeContext })
                 });
 
                 const contentType = response.headers.get('content-type');

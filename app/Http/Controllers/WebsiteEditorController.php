@@ -186,18 +186,29 @@ EOT;
         $request->validate([
             'html' => 'required|string',
             'prompt' => 'required|string',
-            'api_key' => 'required|string'
+            'api_key' => 'required|string',
+            'theme_context' => 'nullable|string'
         ]);
 
         $html = $request->input('html');
         $prompt = $request->input('prompt');
         $apiKey = $request->input('api_key');
+        $themeContext = $request->input('theme_context', '');
 
         // Basic validation for Anthropic API key format
         if (!str_starts_with($apiKey, 'sk-ant-')) {
             return response()->json([
                 'error' => 'Invalid API key format. Key should start with sk-ant-'
             ], 400);
+        }
+
+        // Build the theme context section for the prompt
+        $themeSection = '';
+        if (!empty($themeContext)) {
+            $themeSection = "
+SITE THEME (use these colors, fonts, and styles to match the website's design):
+{$themeContext}
+";
         }
 
         try {
@@ -213,13 +224,14 @@ EOT;
                     [
                         'role' => 'user',
                         'content' => "You are a UI/UX expert. Modify the HTML below based on the user's request.
-
+{$themeSection}
 RULES:
 1. Use INLINE STYLES (style=\"...\") for all CSS - NO <style> tags
 2. Keep existing class names, add inline styles to override
 3. Return ONLY raw HTML - NO markdown, NO code blocks, NO explanation
 4. Preserve original structure and attributes
 5. IMPORTANT: You MUST return the COMPLETE HTML - do not truncate or cut off the output
+6. MATCH THE SITE THEME: Use the colors, fonts, and styles from the theme context above to ensure edits blend with the existing design
 
 HTML:
 {$html}
