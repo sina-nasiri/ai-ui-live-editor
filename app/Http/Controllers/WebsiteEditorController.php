@@ -95,24 +95,32 @@ class WebsiteEditorController extends Controller
 <style id="editor-styles">
     .editor-selectable-section {
         cursor: pointer !important;
-        transition: outline 0.2s ease !important;
         pointer-events: auto !important;
     }
     .editor-selectable-section:hover {
         outline: 3px solid #3B82F6 !important;
-        outline-offset: 2px !important;
+        outline-offset: -3px !important;
+        box-shadow: inset 0 0 0 3px #3B82F6, 0 0 0 3px #3B82F6 !important;
         z-index: 9998 !important;
         position: relative !important;
     }
     .editor-selectable-section.selected {
         outline: 4px solid #10B981 !important;
-        outline-offset: 2px !important;
+        outline-offset: -4px !important;
+        box-shadow: inset 0 0 0 4px #10B981, 0 0 0 4px #10B981 !important;
         z-index: 9999 !important;
         position: relative !important;
     }
     /* Override common blocking styles */
+    .editor-selectable-section,
     .editor-selectable-section * {
         pointer-events: auto !important;
+    }
+    /* Ensure visibility */
+    .editor-selectable-section:hover,
+    .editor-selectable-section.selected {
+        opacity: 1 !important;
+        visibility: visible !important;
     }
 </style>
 <script id="editor-script">

@@ -1241,6 +1241,9 @@
                 const iframeBody = iframeDoc.body;
                 if (!iframeBody) return;
 
+                // Skip tags that shouldn't be selectable
+                const skipTags = new Set(['script', 'style', 'link', 'meta', 'head', 'html', 'br', 'hr', 'noscript', 'base', 'svg', 'path', 'circle', 'rect', 'line', 'polygon', 'polyline', 'ellipse', 'g', 'defs', 'use', 'symbol', 'clippath', 'mask', 'title']);
+
                 const allElements = iframeBody.querySelectorAll('*');
                 let selectableCount = 0;
 
@@ -1249,29 +1252,55 @@
                     if (element.dataset.editorProcessed) return;
 
                     const tagName = element.tagName.toLowerCase();
-                    if (['script', 'style', 'link', 'meta', 'head', 'html', 'br', 'hr', 'noscript', 'base', 'svg', 'path', 'circle', 'rect', 'line', 'polygon', 'polyline', 'ellipse', 'g', 'defs', 'use', 'symbol', 'clippath', 'mask'].includes(tagName)) return;
+                    if (skipTags.has(tagName)) return;
                     if (element.id === 'editor-styles' || element.id === 'editor-script') return;
 
+                    // Check if element is visible
                     const rect = element.getBoundingClientRect();
+                    if (rect.width < 10 || rect.height < 10) return;
+
                     const style = window.getComputedStyle(element);
-                    if (rect.width < 20 || rect.height < 20) return;
-                    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return;
+                    if (style.display === 'none') return;
 
                     // Mark as processed
                     element.dataset.editorProcessed = 'true';
 
-                    // Force pointer events
-                    element.style.pointerEvents = 'auto';
+                    // Force styles for selection
+                    element.style.setProperty('pointer-events', 'auto', 'important');
 
                     element.classList.add('editor-selectable-section');
                     selectableCount++;
 
+                    // Use capture phase to ensure we get the event first
                     element.addEventListener('click', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        e.stopImmediatePropagation();
                         selectElement(element);
-                    });
+                    }, true);
+
+                    // Also add mousedown for sites that prevent click
+                    element.addEventListener('mousedown', (e) => {
+                        if (e.button === 0) { // Left click only
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                        }
+                    }, true);
                 });
+
+                // Also add a global click handler on the body as fallback
+                if (!iframeBody.dataset.editorGlobalHandler) {
+                    iframeBody.dataset.editorGlobalHandler = 'true';
+                    iframeBody.addEventListener('click', (e) => {
+                        const target = e.target.closest('.editor-selectable-section');
+                        if (target) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            selectElement(target);
+                        }
+                    }, true);
+                }
 
                 if (selectableCount > 0) {
                     console.log(`Editor: Made ${selectableCount} elements selectable`);
