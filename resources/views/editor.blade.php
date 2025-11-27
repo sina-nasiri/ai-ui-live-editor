@@ -1333,21 +1333,21 @@
             toolbar.id = 'editor-hover-toolbar';
             toolbar.className = 'editor-hover-toolbar';
             toolbar.innerHTML = `
-                <button class="editor-toolbar-btn" id="toolbar-copy-btn" title="Copy HTML">
+                <button class="editor-toolbar-btn" id="toolbar-copy-btn" title="Copy HTML (C)">
                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                     </svg>
-                    Copy HTML
+                    Copy [C]
                 </button>
                 <div class="editor-toolbar-divider"></div>
-                <button class="editor-toolbar-btn" id="toolbar-screenshot-btn" title="Screenshot">
+                <button class="editor-toolbar-btn" id="toolbar-screenshot-btn" title="Screenshot (S)">
                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                         <circle cx="8.5" cy="8.5" r="1.5"></circle>
                         <polyline points="21 15 16 10 5 21"></polyline>
                     </svg>
-                    Screenshot
+                    Screenshot [S]
                 </button>
             `;
 
@@ -1385,11 +1385,27 @@
             toolbar.addEventListener('mouseleave', () => {
                 hideToolbarTimeout = setTimeout(() => {
                     hideHoverToolbar();
-                }, 200);
+                }, 500);
             });
 
             // Setup hover events on selectable elements
             setupHoverEvents(iframeDoc);
+
+            // Add keyboard shortcuts for copy/screenshot
+            if (!iframeDoc.body.dataset.keyboardHandlerAdded) {
+                iframeDoc.body.dataset.keyboardHandlerAdded = 'true';
+                iframeDoc.addEventListener('keydown', (e) => {
+                    if (!hoveredElement) return;
+
+                    if (e.key === 'c' || e.key === 'C') {
+                        e.preventDefault();
+                        copyElementHtml(hoveredElement);
+                    } else if (e.key === 's' || e.key === 'S') {
+                        e.preventDefault();
+                        screenshotElement(hoveredElement);
+                    }
+                });
+            }
         }
 
         // Setup hover events for elements
@@ -1413,7 +1429,7 @@
                 el.addEventListener('mouseleave', (e) => {
                     hideToolbarTimeout = setTimeout(() => {
                         hideHoverToolbar();
-                    }, 200);
+                    }, 500);
                 });
             });
         }
@@ -1423,15 +1439,14 @@
             if (!hoverToolbar) return;
 
             const rect = element.getBoundingClientRect();
-            const iframeRect = elements.previewFrame.getBoundingClientRect();
 
-            // Calculate position - show above element, centered
-            let top = rect.top - 50;
-            let left = rect.left + (rect.width / 2) - 100; // Approximate toolbar half-width
+            // Calculate position - show above element, overlapping slightly
+            let top = rect.top - 40; // Overlap with element
+            let left = rect.left + (rect.width / 2) - 100;
 
             // Keep within viewport bounds
             if (top < 10) {
-                top = rect.bottom + 10; // Show below if no space above
+                top = rect.bottom - 10; // Show below, overlapping
             }
             if (left < 10) {
                 left = 10;
