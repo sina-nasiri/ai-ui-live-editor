@@ -1306,10 +1306,347 @@
                     console.log(`Editor: Made ${selectableCount} elements selectable`);
                 }
 
+                // Create hover toolbar if it doesn't exist
+                createHoverToolbar(iframeDoc);
+
             } catch (error) {
                 console.error('Editor init error:', error);
                 showToast('Failed to initialize editor', 'error');
             }
+        }
+
+        // Hover toolbar state
+        let hoverToolbar = null;
+        let hoveredElement = null;
+        let hideToolbarTimeout = null;
+
+        // Create hover toolbar in iframe
+        function createHoverToolbar(iframeDoc) {
+            // Check if toolbar already exists
+            if (iframeDoc.getElementById('editor-hover-toolbar')) {
+                hoverToolbar = iframeDoc.getElementById('editor-hover-toolbar');
+                return;
+            }
+
+            // Create toolbar element
+            const toolbar = iframeDoc.createElement('div');
+            toolbar.id = 'editor-hover-toolbar';
+            toolbar.className = 'editor-hover-toolbar';
+            toolbar.innerHTML = `
+                <button class="editor-toolbar-btn" id="toolbar-copy-btn" title="Copy HTML">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    Copy HTML
+                </button>
+                <div class="editor-toolbar-divider"></div>
+                <button class="editor-toolbar-btn" id="toolbar-screenshot-btn" title="Screenshot">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    Screenshot
+                </button>
+            `;
+
+            iframeDoc.body.appendChild(toolbar);
+            hoverToolbar = toolbar;
+
+            // Add click handlers
+            const copyBtn = toolbar.querySelector('#toolbar-copy-btn');
+            const screenshotBtn = toolbar.querySelector('#toolbar-screenshot-btn');
+
+            copyBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (hoveredElement) {
+                    copyElementHtml(hoveredElement);
+                }
+            });
+
+            screenshotBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (hoveredElement) {
+                    screenshotElement(hoveredElement);
+                }
+            });
+
+            // Keep toolbar visible when hovering over it
+            toolbar.addEventListener('mouseenter', () => {
+                if (hideToolbarTimeout) {
+                    clearTimeout(hideToolbarTimeout);
+                    hideToolbarTimeout = null;
+                }
+            });
+
+            toolbar.addEventListener('mouseleave', () => {
+                hideToolbarTimeout = setTimeout(() => {
+                    hideHoverToolbar();
+                }, 200);
+            });
+
+            // Setup hover events on selectable elements
+            setupHoverEvents(iframeDoc);
+        }
+
+        // Setup hover events for elements
+        function setupHoverEvents(iframeDoc) {
+            const elements = iframeDoc.querySelectorAll('.editor-selectable-section');
+
+            elements.forEach(element => {
+                // Skip if already has hover handler
+                if (element.dataset.hoverHandlerAdded) return;
+                element.dataset.hoverHandlerAdded = 'true';
+
+                element.addEventListener('mouseenter', (e) => {
+                    if (hideToolbarTimeout) {
+                        clearTimeout(hideToolbarTimeout);
+                        hideToolbarTimeout = null;
+                    }
+                    hoveredElement = element;
+                    showHoverToolbar(element, iframeDoc);
+                });
+
+                element.addEventListener('mouseleave', (e) => {
+                    hideToolbarTimeout = setTimeout(() => {
+                        hideHoverToolbar();
+                    }, 200);
+                });
+            });
+        }
+
+        // Show hover toolbar near element
+        function showHoverToolbar(element, iframeDoc) {
+            if (!hoverToolbar) return;
+
+            const rect = element.getBoundingClientRect();
+            const iframeRect = elements.previewFrame.getBoundingClientRect();
+
+            // Calculate position - show above element, centered
+            let top = rect.top - 50;
+            let left = rect.left + (rect.width / 2) - 100; // Approximate toolbar half-width
+
+            // Keep within viewport bounds
+            if (top < 10) {
+                top = rect.bottom + 10; // Show below if no space above
+            }
+            if (left < 10) {
+                left = 10;
+            }
+
+            // Get iframe window dimensions
+            const iframeWindow = elements.previewFrame.contentWindow;
+            const maxRight = iframeWindow.innerWidth - 220;
+            if (left > maxRight) {
+                left = maxRight;
+            }
+
+            hoverToolbar.style.top = top + 'px';
+            hoverToolbar.style.left = left + 'px';
+            hoverToolbar.classList.add('visible');
+        }
+
+        // Hide hover toolbar
+        function hideHoverToolbar() {
+            if (hoverToolbar) {
+                hoverToolbar.classList.remove('visible');
+            }
+            hoveredElement = null;
+        }
+
+        // Copy element HTML to clipboard
+        async function copyElementHtml(element) {
+            try {
+                const html = element.outerHTML;
+
+                // Format the HTML for better readability
+                const formatted = formatHtml(html);
+
+                await navigator.clipboard.writeText(formatted);
+                showToast('HTML copied to clipboard!', 'success');
+                hideHoverToolbar();
+            } catch (error) {
+                console.error('Copy error:', error);
+                // Fallback method
+                try {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = element.outerHTML;
+                    textArea.style.position = 'fixed';
+                    textArea.style.opacity = '0';
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showToast('HTML copied to clipboard!', 'success');
+                    hideHoverToolbar();
+                } catch (fallbackError) {
+                    showToast('Failed to copy HTML', 'error');
+                }
+            }
+        }
+
+        // Simple HTML formatter
+        function formatHtml(html) {
+            let formatted = '';
+            let indent = 0;
+            const tab = '  ';
+
+            // Split by tags
+            const tokens = html.split(/(<[^>]+>)/g).filter(t => t.trim());
+
+            tokens.forEach(token => {
+                if (token.match(/^<\/\w/)) {
+                    // Closing tag
+                    indent--;
+                    formatted += tab.repeat(Math.max(0, indent)) + token + '\n';
+                } else if (token.match(/^<\w[^>]*[^\/]>$/)) {
+                    // Opening tag
+                    formatted += tab.repeat(indent) + token + '\n';
+                    indent++;
+                } else if (token.match(/^<\w[^>]*\/>$/)) {
+                    // Self-closing tag
+                    formatted += tab.repeat(indent) + token + '\n';
+                } else if (token.match(/^</)) {
+                    // Other tag
+                    formatted += tab.repeat(indent) + token + '\n';
+                } else if (token.trim()) {
+                    // Text content
+                    formatted += tab.repeat(indent) + token.trim() + '\n';
+                }
+            });
+
+            return formatted.trim();
+        }
+
+        // Screenshot element
+        async function screenshotElement(element) {
+            try {
+                showToast('Capturing screenshot...', 'info', 2000);
+
+                const iframeDoc = elements.previewFrame.contentDocument;
+                const iframeWindow = elements.previewFrame.contentWindow;
+
+                // Get element dimensions
+                const rect = element.getBoundingClientRect();
+
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                const scale = window.devicePixelRatio || 1;
+                canvas.width = rect.width * scale;
+                canvas.height = rect.height * scale;
+                const ctx = canvas.getContext('2d');
+                ctx.scale(scale, scale);
+
+                // Use html2canvas if available, otherwise use a simpler approach
+                if (typeof iframeWindow.html2canvas !== 'undefined') {
+                    const capturedCanvas = await iframeWindow.html2canvas(element, {
+                        scale: scale,
+                        useCORS: true,
+                        allowTaint: true
+                    });
+                    downloadCanvas(capturedCanvas, 'element-screenshot.png');
+                } else {
+                    // Create a clone of the element and render it
+                    const clone = element.cloneNode(true);
+
+                    // Remove editor-specific classes
+                    clone.classList.remove('editor-selectable-section', 'selected');
+
+                    // Create a temporary container
+                    const container = document.createElement('div');
+                    container.style.cssText = `
+                        position: fixed;
+                        left: -9999px;
+                        top: -9999px;
+                        width: ${rect.width}px;
+                        height: ${rect.height}px;
+                        background: white;
+                    `;
+                    container.appendChild(clone);
+                    document.body.appendChild(container);
+
+                    // Try using foreignObject in SVG
+                    const svgData = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="${rect.width}" height="${rect.height}">
+                            <foreignObject width="100%" height="100%">
+                                <div xmlns="http://www.w3.org/1999/xhtml">
+                                    ${element.outerHTML}
+                                </div>
+                            </foreignObject>
+                        </svg>
+                    `;
+
+                    const img = new Image();
+                    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(svgBlob);
+
+                    img.onload = () => {
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(0, 0, rect.width, rect.height);
+                        ctx.drawImage(img, 0, 0);
+                        URL.revokeObjectURL(url);
+                        document.body.removeChild(container);
+                        downloadCanvas(canvas, 'element-screenshot.png');
+                    };
+
+                    img.onerror = () => {
+                        // Fallback: just download the HTML
+                        URL.revokeObjectURL(url);
+                        document.body.removeChild(container);
+                        downloadAsHtml(element.outerHTML, 'element.html');
+                        showToast('Screenshot not supported, downloaded as HTML instead', 'warning');
+                    };
+
+                    img.src = url;
+                }
+
+                hideHoverToolbar();
+            } catch (error) {
+                console.error('Screenshot error:', error);
+                // Fallback: download as HTML
+                downloadAsHtml(element.outerHTML, 'element.html');
+                showToast('Screenshot failed, downloaded as HTML instead', 'warning');
+            }
+        }
+
+        // Download canvas as image
+        function downloadCanvas(canvas, filename) {
+            try {
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url);
+                        showToast('Screenshot downloaded!', 'success');
+                    } else {
+                        showToast('Failed to create screenshot', 'error');
+                    }
+                }, 'image/png');
+            } catch (error) {
+                console.error('Download error:', error);
+                showToast('Failed to download screenshot', 'error');
+            }
+        }
+
+        // Download as HTML file
+        function downloadAsHtml(html, filename) {
+            const blob = new Blob([html], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
         }
 
         // Get element path

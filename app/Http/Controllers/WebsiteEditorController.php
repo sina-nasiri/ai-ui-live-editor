@@ -122,6 +122,51 @@ class WebsiteEditorController extends Controller
         opacity: 1 !important;
         visibility: visible !important;
     }
+    /* Hover Toolbar */
+    .editor-hover-toolbar {
+        position: fixed !important;
+        display: none;
+        background: #1f2937 !important;
+        border-radius: 8px !important;
+        padding: 4px !important;
+        gap: 4px !important;
+        z-index: 99999 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        flex-direction: row !important;
+    }
+    .editor-hover-toolbar.visible {
+        display: flex !important;
+    }
+    .editor-toolbar-btn {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        padding: 8px 12px !important;
+        background: transparent !important;
+        border: none !important;
+        border-radius: 6px !important;
+        color: white !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        cursor: pointer !important;
+        white-space: nowrap !important;
+        transition: background 0.2s !important;
+    }
+    .editor-toolbar-btn:hover {
+        background: #374151 !important;
+    }
+    .editor-toolbar-btn svg {
+        width: 14px !important;
+        height: 14px !important;
+        flex-shrink: 0 !important;
+    }
+    .editor-toolbar-divider {
+        width: 1px !important;
+        background: #4b5563 !important;
+        margin: 4px 2px !important;
+    }
 </style>
 <script id="editor-script">
     window.editorMode = true;
