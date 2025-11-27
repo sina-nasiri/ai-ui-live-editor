@@ -1333,21 +1333,21 @@
             toolbar.id = 'editor-hover-toolbar';
             toolbar.className = 'editor-hover-toolbar';
             toolbar.innerHTML = `
-                <button class="editor-toolbar-btn" id="toolbar-copy-btn" title="Copy HTML (C)">
+                <button class="editor-toolbar-btn" id="toolbar-copy-btn" title="Copy HTML">
                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                     </svg>
-                    Copy [C]
+                    Copy HTML
                 </button>
                 <div class="editor-toolbar-divider"></div>
-                <button class="editor-toolbar-btn" id="toolbar-screenshot-btn" title="Screenshot (S)">
+                <button class="editor-toolbar-btn" id="toolbar-screenshot-btn" title="Screenshot">
                     <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                         <circle cx="8.5" cy="8.5" r="1.5"></circle>
                         <polyline points="21 15 16 10 5 21"></polyline>
                     </svg>
-                    Screenshot [S]
+                    Screenshot
                 </button>
             `;
 
@@ -1382,53 +1382,16 @@
                 }
             });
 
-            toolbar.addEventListener('mouseleave', () => {
-                hideToolbarTimeout = setTimeout(() => {
-                    hideHoverToolbar();
-                }, 500);
-            });
-
-            // Setup hover events on selectable elements
+            // Setup right-click events on selectable elements
             setupHoverEvents(iframeDoc);
 
-            // Add keyboard shortcuts for copy/screenshot in iframe
-            if (!iframeDoc.body.dataset.keyboardHandlerAdded) {
-                iframeDoc.body.dataset.keyboardHandlerAdded = 'true';
-                iframeDoc.addEventListener('keydown', handleToolbarKeydown);
-            }
+            // Click anywhere to close toolbar
+            iframeDoc.addEventListener('click', (e) => {
+                if (!toolbar.contains(e.target)) {
+                    hideHoverToolbar();
+                }
+            });
         }
-
-        // Keyboard handler for toolbar shortcuts
-        function handleToolbarKeydown(e) {
-            if (!hoveredElement) return;
-
-            const key = e.key.toLowerCase();
-            if (key === 'c') {
-                e.preventDefault();
-                e.stopPropagation();
-                copyElementHtml(hoveredElement);
-            } else if (key === 's') {
-                e.preventDefault();
-                e.stopPropagation();
-                screenshotElement(hoveredElement);
-            }
-        }
-
-        // Also listen on parent window for keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            // Only trigger if modal is not open and we have a hovered element
-            if (elements.modalOverlay.classList.contains('active')) return;
-            if (!hoveredElement) return;
-
-            const key = e.key.toLowerCase();
-            if (key === 'c') {
-                e.preventDefault();
-                copyElementHtml(hoveredElement);
-            } else if (key === 's') {
-                e.preventDefault();
-                screenshotElement(hoveredElement);
-            }
-        });
 
         // Setup hover events for elements
         function setupHoverEvents(iframeDoc) {
@@ -1439,45 +1402,36 @@
                 if (el.dataset.hoverHandlerAdded) return;
                 el.dataset.hoverHandlerAdded = 'true';
 
-                el.addEventListener('mouseenter', (e) => {
+                // Show toolbar on right-click
+                el.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (hideToolbarTimeout) {
                         clearTimeout(hideToolbarTimeout);
                         hideToolbarTimeout = null;
                     }
                     hoveredElement = el;
-                    showHoverToolbar(el, iframeDoc);
-                    // Focus iframe for keyboard shortcuts
-                    elements.previewFrame.contentWindow.focus();
-                });
-
-                el.addEventListener('mouseleave', (e) => {
-                    hideToolbarTimeout = setTimeout(() => {
-                        hideHoverToolbar();
-                    }, 500);
+                    showHoverToolbar(el, iframeDoc, e.clientX, e.clientY);
                 });
             });
         }
 
-        // Show hover toolbar near element
-        function showHoverToolbar(element, iframeDoc) {
+        // Show hover toolbar at click position
+        function showHoverToolbar(element, iframeDoc, clickX, clickY) {
             if (!hoverToolbar) return;
 
-            const rect = element.getBoundingClientRect();
-
-            // Calculate position - show above element, overlapping slightly
-            let top = rect.top - 40; // Overlap with element
-            let left = rect.left + (rect.width / 2) - 100;
+            // Position at click location
+            let top = clickY - 45;
+            let left = clickX - 100;
 
             // Keep within viewport bounds
+            const iframeWindow = elements.previewFrame.contentWindow;
             if (top < 10) {
-                top = rect.bottom - 10; // Show below, overlapping
+                top = clickY + 10;
             }
             if (left < 10) {
                 left = 10;
             }
-
-            // Get iframe window dimensions
-            const iframeWindow = elements.previewFrame.contentWindow;
             const maxRight = iframeWindow.innerWidth - 220;
             if (left > maxRight) {
                 left = maxRight;
