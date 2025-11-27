@@ -784,6 +784,99 @@
             background: var(--success);
         }
 
+        /* GitHub Button */
+        .github-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--gray-800);
+            color: white;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .github-link:hover {
+            background: var(--gray-700);
+            transform: translateY(-1px);
+        }
+
+        .github-link svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .github-stars {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* Footer */
+        .app-footer {
+            background: var(--gray-800);
+            color: var(--gray-300);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            font-size: 13px;
+        }
+
+        .footer-sponsor {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-sponsor a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .footer-sponsor a:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        .footer-divider {
+            width: 1px;
+            height: 20px;
+            background: var(--gray-600);
+        }
+
+        .footer-links {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .footer-links a {
+            color: var(--gray-400);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: white;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .navbar {
@@ -838,6 +931,18 @@
         </form>
 
         <div class="nav-actions">
+            <a href="https://github.com/sina-nasiri/ai-ui-live-editor" target="_blank" class="github-link" title="Star on GitHub">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                <span>GitHub</span>
+                <span class="github-stars">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z"/>
+                    </svg>
+                    Star
+                </span>
+            </a>
             <div class="api-key-status" id="apiKeyStatus">
                 <div class="api-key-status-dot"></div>
                 <span>No API Key</span>
@@ -1022,6 +1127,25 @@
 
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="footer-sponsor">
+            <span>Sponsored by</span>
+            <a href="https://monovm.com" target="_blank">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12z"/>
+                    <path d="M6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/>
+                </svg>
+                MonoVM VPS Hosting
+            </a>
+        </div>
+        <div class="footer-divider"></div>
+        <div class="footer-links">
+            <a href="https://github.com/sina-nasiri/ai-ui-live-editor" target="_blank">GitHub</a>
+            <a href="https://monovm.com/linux-vps/" target="_blank">Get VPS</a>
+        </div>
+    </footer>
 
     <script>
         // Configuration
