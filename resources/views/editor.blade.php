@@ -1803,8 +1803,18 @@
             elements.elementPath.innerHTML = `<span>${path}</span>`;
             elements.elementPath.style.display = 'block';
 
-            // Update preview
-            let htmlPreview = element.outerHTML;
+            // Update preview with clean HTML (remove editor classes)
+            const previewClone = element.cloneNode(true);
+            previewClone.classList.remove('editor-selectable-section', 'selected');
+            previewClone.removeAttribute('data-editor-processed');
+            previewClone.removeAttribute('data-hover-handler-added');
+            previewClone.querySelectorAll('.editor-selectable-section').forEach(el => {
+                el.classList.remove('editor-selectable-section', 'selected');
+                el.removeAttribute('data-editor-processed');
+                el.removeAttribute('data-hover-handler-added');
+            });
+
+            let htmlPreview = previewClone.outerHTML;
             if (htmlPreview.length > 1000) {
                 htmlPreview = htmlPreview.substring(0, 1000) + '...';
             }
@@ -1872,7 +1882,21 @@
             }
 
             const prompt = elements.promptInput.value.trim();
-            const htmlContent = selectedElement.outerHTML;
+
+            // Clone element and clean up editor-specific attributes/classes
+            const cleanElement = selectedElement.cloneNode(true);
+            cleanElement.classList.remove('editor-selectable-section', 'selected');
+            cleanElement.removeAttribute('data-editor-processed');
+            cleanElement.removeAttribute('data-hover-handler-added');
+
+            // Also clean nested elements
+            cleanElement.querySelectorAll('.editor-selectable-section').forEach(el => {
+                el.classList.remove('editor-selectable-section', 'selected');
+                el.removeAttribute('data-editor-processed');
+                el.removeAttribute('data-hover-handler-added');
+            });
+
+            const htmlContent = cleanElement.outerHTML;
 
             elements.processingOverlay.classList.add('active');
             elements.applyBtn.disabled = true;
