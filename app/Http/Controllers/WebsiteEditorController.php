@@ -201,14 +201,14 @@ EOT;
         }
 
         try {
-            // Call Claude API
-            $response = Http::timeout(60)->withHeaders([
+            // Call Claude API with higher max_tokens for large HTML sections
+            $response = Http::timeout(120)->withHeaders([
                 'Content-Type' => 'application/json',
                 'x-api-key' => $apiKey,
                 'anthropic-version' => '2023-06-01'
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => 'claude-sonnet-4-5-20250929',
-                'max_tokens' => 4096,
+                'max_tokens' => 16384,
                 'messages' => [
                     [
                         'role' => 'user',
@@ -219,6 +219,7 @@ RULES:
 2. Keep existing class names, add inline styles to override
 3. Return ONLY raw HTML - NO markdown, NO code blocks, NO explanation
 4. Preserve original structure and attributes
+5. IMPORTANT: You MUST return the COMPLETE HTML - do not truncate or cut off the output
 
 HTML:
 {$html}
@@ -241,6 +242,15 @@ Output the modified HTML only:"
 
             $result = $response->json();
             $editedHtml = $result['content'][0]['text'] ?? '';
+
+            // Check if response was truncated due to max_tokens
+            $stopReason = $result['stop_reason'] ?? '';
+            if ($stopReason === 'max_tokens') {
+                Log::warning('Claude response was truncated due to max_tokens limit');
+                return response()->json([
+                    'error' => 'The selected HTML section is too large. Please select a smaller section to edit.'
+                ], 400);
+            }
 
             // Clean up the response (remove markdown code blocks if any)
             $editedHtml = preg_replace('/```html\s*/', '', $editedHtml);
