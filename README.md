@@ -1,156 +1,390 @@
 # AI UI Live Editor
 
-A powerful Laravel application that allows you to load any website, select HTML sections with your mouse, and use Claude AI to modify them in real-time based on natural language prompts.
+A powerful Laravel-based web application that allows you to visually edit any website using AI. Load any website, select elements with your mouse, describe changes in natural language, and watch Claude AI transform your design in real-time.
+
+![AI UI Live Editor](https://img.shields.io/badge/Laravel-10.x-red) ![Claude AI](https://img.shields.io/badge/Claude-Sonnet%204.5-purple) ![License](https://img.shields.io/badge/License-MIT-green)
+
+## Why AI UI Live Editor?
+
+**Think faster. Test faster. Iterate faster.**
+
+Stop spending hours in design tools or waiting for developers. With AI UI Live Editor, you can:
+
+- **Test ideas instantly** - See your design changes in seconds, not days
+- **Steal from the best** - Copy any element from competitor sites and test it on yours immediately
+- **Communicate visually** - Show stakeholders exactly what you mean instead of explaining
+- **Validate before building** - Test UI concepts on real websites before writing a single line of code
+
+## Use Cases
+
+### For UX Researchers
+- **A/B Test Concepts** - Quickly create visual variations to test with users
+- **Competitive Analysis** - Load competitor websites, copy their best UI patterns, and see how they'd look on your product
+- **User Interview Props** - Generate quick mockups during user research sessions
+- **Document Findings** - Screenshot specific elements for research reports
+
+### For UI/UX Designers
+- **Rapid Prototyping** - Test design ideas directly on production websites
+- **Client Presentations** - Show clients proposed changes on their actual website
+- **Design Exploration** - Try dozens of variations in minutes, not hours
+- **Handoff Made Easy** - Copy the exact HTML/CSS to share with developers
+
+### For Product Teams
+- **Sprint Planning** - Visualize feature ideas before committing to development
+- **Stakeholder Buy-in** - Show executives proposed changes on real products
+- **Quick Fixes** - Test copy changes, color updates, layout tweaks instantly
+- **Competitor Intelligence** - Analyze and borrow UI patterns from market leaders
+
+### For Developers
+- **Frontend Prototyping** - Test CSS changes without touching codebase
+- **Bug Recreation** - Modify UI to demonstrate issues
+- **Code Extraction** - Copy clean, formatted HTML from any website
+- **Learning Tool** - Understand how other websites structure their HTML
+
+## Real-World Workflows
+
+### Workflow 1: Competitor Analysis
+```
+1. Load competitor's website (e.g., stripe.com)
+2. Right-click on their pricing section → Copy HTML
+3. Load your website
+4. Paste and adapt the section
+5. Screenshot for team presentation
+```
+
+### Workflow 2: Quick Design Iteration
+```
+1. Load your production website
+2. Select the hero section
+3. Type: "Make it more modern with a gradient background and larger text"
+4. Apply → See instant results
+5. Iterate until perfect
+6. Screenshot or copy code for developers
+```
+
+### Workflow 3: User Research
+```
+1. Load your website
+2. Create 3 different button variations
+3. Screenshot each variation
+4. Use in user preference testing
+5. Share findings with team
+```
 
 ## Features
 
-- **Load Any Website**: Enter a URL and load it into the editor
-- **Interactive Section Selection**: Hover over sections to highlight them, click to select
-- **AI-Powered Editing**: Use natural language to describe changes
-- **Real-Time Updates**: See your changes applied instantly
-- **Perfect for**:
-  - UI/UX designers testing design variations
-  - Marketing teams previewing content changes
-  - Developers prototyping features
-  - Product managers visualizing ideas
+- **Load Any Website** - Enter any URL and load it through a secure proxy
+- **Visual Element Selection** - Click on any element to select it with visual highlighting
+- **AI-Powered Editing** - Describe changes in natural language and let Claude AI modify the HTML
+- **Copy HTML** - Right-click any element to copy its formatted HTML code
+- **Screenshot Elements** - Capture screenshots of individual elements as PNG
+- **Modern UI** - Clean, responsive interface with modals, toast notifications
+- **API Key Management** - Set your Anthropic API key directly in the UI (stored locally in browser)
+- **Real-Time Preview** - See changes applied instantly without page refresh
+
+## Screenshots
+
+### Main Interface
+- Clean navbar with URL input and settings
+- Full-width website preview
+- Status bar showing selected element path
+
+### Element Selection
+- Blue highlight on hover
+- Green highlight on selection
+- Right-click toolbar for copy/screenshot
+
+### Edit Modal
+- HTML preview of selected element
+- Natural language prompt input
+- Quick suggestion chips
 
 ## Requirements
 
-- PHP 8.2 or higher
+- PHP 8.1 or higher
 - Composer
-- Node.js (optional, for asset compilation)
-- Anthropic API Key (Claude AI)
+- Anthropic API Key ([Get one here](https://console.anthropic.com/settings/keys))
 
 ## Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd ai-ui-live-editor
-   ```
+### 1. Clone the repository
 
-2. **Install PHP dependencies**
-   ```bash
-   composer install
-   ```
+```bash
+git clone https://github.com/sina-nasiri/ai-ui-live-editor.git
+cd ai-ui-live-editor
+```
 
-3. **Configure environment**
-   ```bash
-   cp .env.example .env
-   php artisan key:generate
-   ```
+### 2. Install dependencies
 
-4. **Add your Claude API key**
+```bash
+composer install
+```
 
-   Edit `.env` and add your Anthropic API key:
-   ```
-   ANTHROPIC_API_KEY=your_api_key_here
-   ```
+### 3. Environment setup
 
-   Get your API key from: https://console.anthropic.com/
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-5. **Set up database (optional)**
+### 4. Configure environment
 
-   The app uses SQLite by default. If you want to use another database, update the `.env` file accordingly.
+Edit `.env` file:
 
-6. **Run migrations (if needed)**
-   ```bash
-   php artisan migrate
-   ```
+```env
+APP_URL=http://localhost:8000
+SESSION_DRIVER=file
+CACHE_STORE=file
+```
 
-7. **Start the development server**
-   ```bash
-   php artisan serve
-   ```
+### 5. Start the development server
 
-8. **Open your browser**
+```bash
+php artisan serve
+```
 
-   Navigate to: `http://localhost:8000`
+Visit `http://localhost:8000` in your browser.
 
 ## Usage
 
-1. **Enter a URL**: Type any website URL in the input field and click "Load Website"
+### Getting Started
 
-2. **Select a Section**:
-   - Hover your mouse over different sections of the loaded website
-   - Sections will be highlighted with a blue border
-   - Click on a section to select it
+1. **Set API Key** - Click the Settings icon (⚙️) in the top navigation and enter your Anthropic API key
+2. **Load a Website** - Enter any URL in the input field and click "Load"
+3. **Select an Element** - Click on any element in the preview (highlighted in green when selected)
+4. **Describe Changes** - In the modal that appears, describe what changes you want in natural language
+5. **Apply Changes** - Click "Apply Changes" and watch the AI transform your selection
 
-3. **Describe Your Changes**:
-   - A floating textarea will appear at the bottom
-   - Type a natural language description of what you want to change
-   - Examples:
-     - "Make the heading larger and change the color to blue"
-     - "Add more padding and make the background gradient"
-     - "Change the button text to 'Learn More' and make it rounded"
+### Copy HTML & Screenshot
 
-4. **Apply Changes**:
-   - Click "Apply Changes" button
-   - Wait for Claude AI to process your request
-   - See the changes applied in real-time!
+**Right-click** on any element to open the toolbar:
+- **Copy HTML** - Copies the element's formatted HTML to your clipboard
+- **Screenshot** - Downloads the element as a PNG image
 
-## Example Prompts
+### Keyboard Shortcuts
 
-- "Make this section have a dark theme with white text"
-- "Add a subtle shadow and increase the spacing"
-- "Change the font to be more modern and increase the size"
-- "Make this button more prominent with a gradient background"
-- "Add an animated hover effect to this element"
+| Shortcut | Action |
+|----------|--------|
+| `Esc` | Close modal |
+| `Ctrl + Enter` | Apply changes (when modal is open) |
+
+### Example Prompts
+
+```
+"Make this larger and add a blue gradient background"
+"Change the font to be more modern and increase padding"
+"Add rounded corners and a subtle shadow"
+"Make this section responsive with flexbox"
+"Change the color scheme to dark mode"
+"Add a hover effect with smooth transition"
+"Make the text bold and center it"
+"Add a border and change background to light gray"
+```
+
+### Quick Suggestion Chips
+
+Click on any suggestion chip for common modifications:
+- Make larger
+- Blue background
+- Round corners
+- Modernize
+- Add shadow
+- Center content
+
+## Deployment
+
+### cPanel / Shared Hosting
+
+1. Upload all files to your hosting directory
+2. Point your domain to the `/public` folder
+3. Update `.env` with your production URL:
+
+```env
+APP_URL=https://yourdomain.com/ai-ui-live-editor/public
+```
+
+4. Ensure proper permissions:
+
+```bash
+chmod -R 755 storage bootstrap/cache
+```
+
+### Apache Configuration
+
+Ensure `mod_rewrite` is enabled. The `.htaccess` file in `/public` handles URL rewriting.
+
+### Nginx Configuration
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+    root /path/to/ai-ui-live-editor/public;
+
+    index index.php;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}
+```
+
+## Project Structure
+
+```
+ai-ui-live-editor/
+├── app/
+│   └── Http/
+│       └── Controllers/
+│           └── WebsiteEditorController.php  # Main controller (proxy & AI)
+├── resources/
+│   └── views/
+│       └── editor.blade.php                 # Main frontend view
+├── routes/
+│   └── web.php                              # Route definitions
+├── public/
+│   └── index.php                            # Application entry point
+├── storage/
+│   └── logs/                                # Application logs
+└── .env                                     # Environment configuration
+```
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Main editor interface |
+| `POST` | `/proxy` | Fetch and proxy external websites |
+| `POST` | `/edit-section` | Process AI edit requests |
 
 ## How It Works
 
-1. **Proxy System**: The app fetches the target website through a Laravel backend proxy to avoid CORS issues
-2. **Section Detection**: JavaScript automatically identifies major HTML sections (headers, sections, articles, etc.)
-3. **AI Processing**: Selected HTML and your prompt are sent to Claude AI via the Anthropic API
-4. **Real-Time Replacement**: The AI-modified HTML replaces the original section instantly
+### 1. Proxy Loading
+When you enter a URL, the app fetches the website content server-side, converts relative URLs to absolute, and injects custom CSS/JS for the editor functionality.
 
-## Security Notes
+### 2. Element Selection
+Custom JavaScript makes all visible elements selectable with:
+- Blue border on hover
+- Green border on selection
+- Right-click context menu for tools
 
-- The app uses a proxy to load external websites. This is necessary to avoid CORS restrictions.
-- Some websites may not work if they have strict Content Security Policies (CSP)
-- Your Claude API key should be kept secure and never committed to version control
-- For production use, consider adding rate limiting and authentication
+### 3. AI Processing
+Your prompt and the selected HTML are sent to Claude AI (Sonnet 4.5), which returns modified HTML with inline styles for immediate compatibility.
+
+### 4. Live Update
+The modified HTML replaces the original element in the preview, giving you instant visual feedback without page refresh.
+
+## Configuration
+
+### AI Model
+
+The default model is `claude-sonnet-4-5-20250929`. To change it, edit `WebsiteEditorController.php`:
+
+```php
+'model' => 'claude-sonnet-4-5-20250929',
+```
+
+### AI System Prompt
+
+The AI prompt can be customized in `WebsiteEditorController.php` in the `editSection` method:
+
+```php
+'content' => "You are a UI/UX expert. Modify the HTML below based on the user's request.
+
+RULES:
+1. Use INLINE STYLES (style=\"...\") for all CSS - NO <style> tags
+2. Keep existing class names, add inline styles to override
+3. Return ONLY raw HTML - NO markdown, NO code blocks, NO explanation
+4. Preserve original structure and attributes
+
+HTML:
+{$html}
+
+Request: {$prompt}
+
+Output the modified HTML only:"
+```
 
 ## Troubleshooting
 
-**Website won't load:**
-- Some sites prevent embedding via X-Frame-Options headers
-- Try a different website or use one you control
+### "Failed to load website"
+- Check if the target website allows proxying
+- Some websites block server requests
+- Try a different website to test
+- Check `storage/logs/laravel.log` for details
 
-**API errors:**
-- Verify your ANTHROPIC_API_KEY is correctly set in `.env`
-- Check your API key has sufficient credits
-- Review logs at `storage/logs/laravel.log`
+### Elements not selectable
+- Wait for the page to fully load (3-5 seconds)
+- Some dynamic content takes time to become selectable
+- The editor re-initializes multiple times to catch late-loading content
+- Try scrolling to make elements visible
 
-**Changes not applying:**
+### API Key errors
+- Ensure your key starts with `sk-ant-`
+- Verify key is valid at [console.anthropic.com](https://console.anthropic.com)
+- Check you have available API credits
+- Key is stored in browser localStorage
+
+### Styles not applying correctly
+- The AI uses inline styles which override most CSS
+- Some websites have aggressive `!important` declarations
+- Try being more specific in your prompt
 - Check browser console for JavaScript errors
-- Ensure the selected section is valid HTML
-- Try simplifying your prompt
+
+### Copy/Screenshot not working
+- Right-click on the element to show the toolbar
+- Ensure you're clicking inside the preview iframe
+- Check browser permissions for clipboard access
+
+## Security Notes
+
+- **API Keys**: Stored in browser localStorage, only sent to Anthropic API
+- **Proxy**: Only fetches content, doesn't execute target website server code
+- **CSRF**: Protection enabled on all POST endpoints
+- **No Storage**: Website content is not stored on server
 
 ## Tech Stack
 
-- **Backend**: Laravel 12
-- **AI**: Claude 3.5 Sonnet (Anthropic API)
+- **Backend**: Laravel 10.x (PHP 8.1+)
+- **AI**: Claude Sonnet 4.5 (Anthropic API)
 - **Frontend**: Vanilla JavaScript, CSS3
-- **HTTP Client**: Guzzle (via Laravel HTTP)
-
-## Development
-
-To modify the application:
-
-- **Controller**: `app/Http/Controllers/WebsiteEditorController.php`
-- **Routes**: `routes/web.php`
-- **Main View**: `resources/views/editor.blade.php`
-- **Config**: `.env`
-
-## License
-
-This project is open-sourced software. The Laravel framework is licensed under the [MIT license](https://opensource.org/licenses/MIT).
+- **HTTP Client**: Guzzle (via Laravel HTTP facade)
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## Credits
+## Roadmap
 
-Built with Laravel and powered by Claude AI from Anthropic.
+- [ ] Export modified HTML/CSS
+- [ ] Save/load editing sessions
+- [ ] Multiple element selection
+- [ ] Undo/redo functionality
+- [ ] Template library
+- [ ] Collaborative editing
+
+## License
+
+This project is open-sourced software licensed under the [MIT license](LICENSE).
+
+## Acknowledgments
+
+- [Laravel](https://laravel.com) - The PHP framework for web artisans
+- [Anthropic Claude](https://anthropic.com) - AI that powers the intelligent editing
+- [Inter Font](https://rsms.me/inter/) - Beautiful UI typography
+
+---
+
+**Made with ❤️ and AI**
+
+Built by [Sina Nasiri](https://github.com/sina-nasiri)
