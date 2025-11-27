@@ -1394,23 +1394,23 @@
 
         // Setup hover events for elements
         function setupHoverEvents(iframeDoc) {
-            const elements = iframeDoc.querySelectorAll('.editor-selectable-section');
+            const selectableElements = iframeDoc.querySelectorAll('.editor-selectable-section');
 
-            elements.forEach(element => {
+            selectableElements.forEach(el => {
                 // Skip if already has hover handler
-                if (element.dataset.hoverHandlerAdded) return;
-                element.dataset.hoverHandlerAdded = 'true';
+                if (el.dataset.hoverHandlerAdded) return;
+                el.dataset.hoverHandlerAdded = 'true';
 
-                element.addEventListener('mouseenter', (e) => {
+                el.addEventListener('mouseenter', (e) => {
                     if (hideToolbarTimeout) {
                         clearTimeout(hideToolbarTimeout);
                         hideToolbarTimeout = null;
                     }
-                    hoveredElement = element;
-                    showHoverToolbar(element, iframeDoc);
+                    hoveredElement = el;
+                    showHoverToolbar(el, iframeDoc);
                 });
 
-                element.addEventListener('mouseleave', (e) => {
+                el.addEventListener('mouseleave', (e) => {
                     hideToolbarTimeout = setTimeout(() => {
                         hideHoverToolbar();
                     }, 200);
