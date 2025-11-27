@@ -1803,15 +1803,28 @@
             elements.elementPath.innerHTML = `<span>${path}</span>`;
             elements.elementPath.style.display = 'block';
 
-            // Update preview with clean HTML (remove editor classes)
+            // Update preview with clean HTML (remove editor classes and injected styles)
             const previewClone = element.cloneNode(true);
             previewClone.classList.remove('editor-selectable-section', 'selected');
             previewClone.removeAttribute('data-editor-processed');
             previewClone.removeAttribute('data-hover-handler-added');
+            if (previewClone.style.pointerEvents === 'auto') {
+                previewClone.style.removeProperty('pointer-events');
+            }
             previewClone.querySelectorAll('.editor-selectable-section').forEach(el => {
                 el.classList.remove('editor-selectable-section', 'selected');
                 el.removeAttribute('data-editor-processed');
                 el.removeAttribute('data-hover-handler-added');
+                if (el.style.pointerEvents === 'auto') {
+                    el.style.removeProperty('pointer-events');
+                }
+            });
+            // Clean empty style attributes
+            if (previewClone.getAttribute('style') === '') {
+                previewClone.removeAttribute('style');
+            }
+            previewClone.querySelectorAll('[style=""]').forEach(el => {
+                el.removeAttribute('style');
             });
 
             let htmlPreview = previewClone.outerHTML;
@@ -1889,11 +1902,27 @@
             cleanElement.removeAttribute('data-editor-processed');
             cleanElement.removeAttribute('data-hover-handler-added');
 
+            // Remove injected pointer-events style
+            if (cleanElement.style.pointerEvents === 'auto') {
+                cleanElement.style.removeProperty('pointer-events');
+            }
+
             // Also clean nested elements
             cleanElement.querySelectorAll('.editor-selectable-section').forEach(el => {
                 el.classList.remove('editor-selectable-section', 'selected');
                 el.removeAttribute('data-editor-processed');
                 el.removeAttribute('data-hover-handler-added');
+                if (el.style.pointerEvents === 'auto') {
+                    el.style.removeProperty('pointer-events');
+                }
+            });
+
+            // Clean empty style attributes
+            if (cleanElement.getAttribute('style') === '') {
+                cleanElement.removeAttribute('style');
+            }
+            cleanElement.querySelectorAll('[style=""]').forEach(el => {
+                el.removeAttribute('style');
             });
 
             const htmlContent = cleanElement.outerHTML;
