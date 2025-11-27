@@ -212,22 +212,20 @@ EOT;
                 'messages' => [
                     [
                         'role' => 'user',
-                        'content' => "You are a UI/UX expert. I will provide you with an HTML section and a prompt describing how to modify it.
+                        'content' => "You are a UI/UX expert. Modify the HTML below based on the user's request.
 
-IMPORTANT RULES:
-1. Use INLINE STYLES (style=\"...\") for all CSS changes - do NOT use <style> tags or external CSS classes
-2. Keep existing class names but add inline styles to override them
-3. Return ONLY the modified HTML element, no explanation or markdown
-4. Preserve the original structure and attributes as much as possible
+RULES:
+1. Use INLINE STYLES (style=\"...\") for all CSS - NO <style> tags
+2. Keep existing class names, add inline styles to override
+3. Return ONLY raw HTML - NO markdown, NO code blocks, NO explanation
+4. Preserve original structure and attributes
 
-Original HTML:
-```html
+HTML:
 {$html}
-```
 
-Modification Request: {$prompt}
+Request: {$prompt}
 
-Return only the modified HTML with inline styles:"
+Output the modified HTML only:"
                     ]
                 ]
             ]);
