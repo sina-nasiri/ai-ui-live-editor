@@ -1805,26 +1805,39 @@
 
             // Update preview with clean HTML (remove editor classes and injected styles)
             const previewClone = element.cloneNode(true);
-            previewClone.classList.remove('editor-selectable-section', 'selected');
-            previewClone.removeAttribute('data-editor-processed');
-            previewClone.removeAttribute('data-hover-handler-added');
-            if (previewClone.style.pointerEvents === 'auto') {
-                previewClone.style.removeProperty('pointer-events');
-            }
-            previewClone.querySelectorAll('.editor-selectable-section').forEach(el => {
+
+            // Function to clean an element for preview
+            function cleanPreviewElement(el) {
                 el.classList.remove('editor-selectable-section', 'selected');
                 el.removeAttribute('data-editor-processed');
                 el.removeAttribute('data-hover-handler-added');
-                if (el.style.pointerEvents === 'auto') {
+
+                // Remove pointer-events style
+                if (el.style.pointerEvents) {
                     el.style.removeProperty('pointer-events');
                 }
-            });
-            // Clean empty style attributes
-            if (previewClone.getAttribute('style') === '') {
-                previewClone.removeAttribute('style');
+
+                // Also clean style attribute string directly (handles !important)
+                const styleAttr = el.getAttribute('style');
+                if (styleAttr) {
+                    const cleanedStyle = styleAttr
+                        .replace(/pointer-events:\s*auto\s*!important;?\s*/gi, '')
+                        .replace(/pointer-events:\s*auto;?\s*/gi, '')
+                        .trim();
+                    if (cleanedStyle) {
+                        el.setAttribute('style', cleanedStyle);
+                    } else {
+                        el.removeAttribute('style');
+                    }
+                }
             }
-            previewClone.querySelectorAll('[style=""]').forEach(el => {
-                el.removeAttribute('style');
+
+            // Clean the main element
+            cleanPreviewElement(previewClone);
+
+            // Clean all nested elements
+            previewClone.querySelectorAll('*').forEach(el => {
+                cleanPreviewElement(el);
             });
 
             let htmlPreview = previewClone.outerHTML;
@@ -1898,31 +1911,39 @@
 
             // Clone element and clean up editor-specific attributes/classes
             const cleanElement = selectedElement.cloneNode(true);
-            cleanElement.classList.remove('editor-selectable-section', 'selected');
-            cleanElement.removeAttribute('data-editor-processed');
-            cleanElement.removeAttribute('data-hover-handler-added');
 
-            // Remove injected pointer-events style
-            if (cleanElement.style.pointerEvents === 'auto') {
-                cleanElement.style.removeProperty('pointer-events');
-            }
-
-            // Also clean nested elements
-            cleanElement.querySelectorAll('.editor-selectable-section').forEach(el => {
+            // Function to clean an element
+            function cleanEditorAttributes(el) {
                 el.classList.remove('editor-selectable-section', 'selected');
                 el.removeAttribute('data-editor-processed');
                 el.removeAttribute('data-hover-handler-added');
-                if (el.style.pointerEvents === 'auto') {
+
+                // Remove pointer-events style (handles both 'auto' and 'auto !important')
+                if (el.style.pointerEvents) {
                     el.style.removeProperty('pointer-events');
                 }
-            });
 
-            // Clean empty style attributes
-            if (cleanElement.getAttribute('style') === '') {
-                cleanElement.removeAttribute('style');
+                // Also check and clean style attribute string directly
+                const styleAttr = el.getAttribute('style');
+                if (styleAttr) {
+                    const cleanedStyle = styleAttr
+                        .replace(/pointer-events:\s*auto\s*!important;?\s*/gi, '')
+                        .replace(/pointer-events:\s*auto;?\s*/gi, '')
+                        .trim();
+                    if (cleanedStyle) {
+                        el.setAttribute('style', cleanedStyle);
+                    } else {
+                        el.removeAttribute('style');
+                    }
+                }
             }
-            cleanElement.querySelectorAll('[style=""]').forEach(el => {
-                el.removeAttribute('style');
+
+            // Clean the main element
+            cleanEditorAttributes(cleanElement);
+
+            // Clean all nested elements
+            cleanElement.querySelectorAll('*').forEach(el => {
+                cleanEditorAttributes(el);
             });
 
             const htmlContent = cleanElement.outerHTML;
