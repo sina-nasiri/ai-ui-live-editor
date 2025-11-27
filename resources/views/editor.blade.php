@@ -1391,22 +1391,44 @@
             // Setup hover events on selectable elements
             setupHoverEvents(iframeDoc);
 
-            // Add keyboard shortcuts for copy/screenshot
+            // Add keyboard shortcuts for copy/screenshot in iframe
             if (!iframeDoc.body.dataset.keyboardHandlerAdded) {
                 iframeDoc.body.dataset.keyboardHandlerAdded = 'true';
-                iframeDoc.addEventListener('keydown', (e) => {
-                    if (!hoveredElement) return;
-
-                    if (e.key === 'c' || e.key === 'C') {
-                        e.preventDefault();
-                        copyElementHtml(hoveredElement);
-                    } else if (e.key === 's' || e.key === 'S') {
-                        e.preventDefault();
-                        screenshotElement(hoveredElement);
-                    }
-                });
+                iframeDoc.addEventListener('keydown', handleToolbarKeydown);
             }
         }
+
+        // Keyboard handler for toolbar shortcuts
+        function handleToolbarKeydown(e) {
+            if (!hoveredElement) return;
+
+            const key = e.key.toLowerCase();
+            if (key === 'c') {
+                e.preventDefault();
+                e.stopPropagation();
+                copyElementHtml(hoveredElement);
+            } else if (key === 's') {
+                e.preventDefault();
+                e.stopPropagation();
+                screenshotElement(hoveredElement);
+            }
+        }
+
+        // Also listen on parent window for keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Only trigger if modal is not open and we have a hovered element
+            if (elements.modalOverlay.classList.contains('active')) return;
+            if (!hoveredElement) return;
+
+            const key = e.key.toLowerCase();
+            if (key === 'c') {
+                e.preventDefault();
+                copyElementHtml(hoveredElement);
+            } else if (key === 's') {
+                e.preventDefault();
+                screenshotElement(hoveredElement);
+            }
+        });
 
         // Setup hover events for elements
         function setupHoverEvents(iframeDoc) {
@@ -1424,6 +1446,8 @@
                     }
                     hoveredElement = el;
                     showHoverToolbar(el, iframeDoc);
+                    // Focus iframe for keyboard shortcuts
+                    elements.previewFrame.contentWindow.focus();
                 });
 
                 el.addEventListener('mouseleave', (e) => {
