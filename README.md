@@ -373,6 +373,80 @@ Output the modified HTML only:"
 - [ ] Template library
 - [ ] Collaborative editing
 
+---
+
+## 🚀 Sponsored by MonoVM
+
+<div align="center">
+
+### Self-Host AI UI Live Editor with MonoVM VPS
+
+[![MonoVM](https://img.shields.io/badge/Powered%20by-MonoVM-blue?style=for-the-badge)](https://monovm.com)
+
+</div>
+
+**Want to run AI UI Live Editor on your own server?** [MonoVM](https://monovm.com) provides reliable, high-performance VPS hosting perfect for self-hosting this application.
+
+### Why MonoVM for Self-Hosting?
+
+| Feature | Benefit |
+|---------|---------|
+| **Global Locations** | 15+ data centers worldwide for low latency |
+| **High Performance** | NVMe SSD storage for fast page loads |
+| **Full Root Access** | Complete control over your server |
+| **24/7 Support** | Expert assistance whenever you need it |
+| **Instant Setup** | Deploy your VPS in minutes |
+| **Affordable Plans** | Starting from just $4.99/month |
+
+### Quick Deploy Guide
+
+Deploy AI UI Live Editor on MonoVM VPS in 5 minutes:
+
+```bash
+# 1. Connect to your MonoVM VPS
+ssh root@your-vps-ip
+
+# 2. Install requirements
+apt update && apt install -y php8.2 php8.2-curl php8.2-xml php8.2-mbstring composer nginx
+
+# 3. Clone and setup
+cd /var/www
+git clone https://github.com/sina-nasiri/ai-ui-live-editor.git
+cd ai-ui-live-editor
+composer install --no-dev
+cp .env.example .env
+php artisan key:generate
+
+# 4. Configure Nginx and you're live!
+```
+
+### Recommended VPS Plans
+
+| Plan | Specs | Best For |
+|------|-------|----------|
+| **Basic** | 1 CPU, 2GB RAM | Personal use, testing |
+| **Standard** | 2 CPU, 4GB RAM | Small teams, regular use |
+| **Professional** | 4 CPU, 8GB RAM | Agencies, heavy usage |
+
+<div align="center">
+
+### 👉 [Get Your MonoVM VPS Today](https://monovm.com/linux-vps/) 👈
+
+*Use code `AIUIEDITOR` for 10% off your first month!*
+
+</div>
+
+### Benefits of Self-Hosting
+
+- **Privacy** - Your API keys and data stay on your server
+- **Speed** - No shared resources, dedicated performance
+- **Customization** - Modify the code to fit your workflow
+- **No Limits** - No usage restrictions or rate limits
+- **Team Access** - Share with your entire team on one server
+- **White Label** - Brand it as your own tool
+
+---
+
 ## License
 
 This project is open-sourced software licensed under the [MIT license](LICENSE).
@@ -381,10 +455,17 @@ This project is open-sourced software licensed under the [MIT license](LICENSE).
 
 - [Laravel](https://laravel.com) - The PHP framework for web artisans
 - [Anthropic Claude](https://anthropic.com) - AI that powers the intelligent editing
+- [MonoVM](https://monovm.com) - VPS hosting sponsor
 - [Inter Font](https://rsms.me/inter/) - Beautiful UI typography
 
 ---
 
+<div align="center">
+
 **Made with ❤️ and AI**
 
 Built by [Sina Nasiri](https://github.com/sina-nasiri)
+
+Sponsored by [MonoVM](https://monovm.com) - Premium VPS Hosting
+
+</div>
