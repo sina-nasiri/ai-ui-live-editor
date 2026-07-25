@@ -149,13 +149,23 @@ class PageSnapshot
 
         $previous = libxml_use_internal_errors(true);
 
-        // This meta prefix is what makes libxml both parse *and* serialise as
-        // UTF-8. Without it saveHTML() escapes every non-ASCII character into
-        // a numeric entity, which survives but reads terribly in the export.
-        $document->loadHTML(
-            '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">'.$html,
-            LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_COMPACT
-        );
+        // This meta is what makes libxml both parse *and* serialise as UTF-8.
+        // Without it saveHTML() escapes every non-ASCII character into a
+        // numeric entity, which survives but reads terribly in the export.
+        //
+        // It has to go *inside* the <html> tag, not before it. Prepended, the
+        // meta opens an implicit document, and libxml then discards the
+        // attributes on the real <html> when it reaches it — taking `dir` with
+        // them. A right-to-left page silently renders left-to-right, and the
+        // audit reports a missing `lang` that the page actually declared.
+        $meta = '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">';
+        $prepared = preg_replace('/(<html\b[^>]*>)/i', '$1'.$meta, $html, 1, $count);
+
+        if ($count === 0 || $prepared === null) {
+            $prepared = $meta.$html;
+        }
+
+        $document->loadHTML($prepared, LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_COMPACT);
 
         libxml_clear_errors();
         libxml_use_internal_errors($previous);

@@ -52,9 +52,21 @@ function checkStylesheetsLoaded(doc) {
     const links = Array.from(doc.querySelectorAll('link[rel~="stylesheet"]'));
     if (!links.length) return [];
 
-    // A sheet that failed to load leaves its <link> with no entry here.
-    const loaded = new Set(Array.from(doc.styleSheets, (sheet) => sheet.ownerNode));
-    const missing = links.filter((link) => !loaded.has(link));
+    // Judge by whether the sheet contributed any rules, not by whether it
+    // appears in document.styleSheets: a link whose fetch failed can still
+    // hold a provisional entry there for a while, so membership is a race and
+    // the same failure reports differently run to run. Rule count is settled.
+    const missing = links.filter((link) => {
+        if (!link.sheet) return true;
+
+        try {
+            return link.sheet.cssRules.length === 0;
+        } catch {
+            // Cross-origin and so unreadable — but it did load.
+            return false;
+        }
+    });
+
     if (!missing.length) return [];
 
     return [

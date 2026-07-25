@@ -231,6 +231,64 @@ class RealWorldMarkupTest extends TestCase
     }
 
     /**
+     * `dir` on the root element is not decoration: drop it and a Persian,
+     * Arabic or Hebrew page renders left-to-right, which is every bit as
+     * broken as losing the stylesheet. `lang` matters nearly as much — the
+     * audit reports a missing one, and the page had declared it all along.
+     */
+    public function test_the_root_elements_lang_and_direction_survive(): void
+    {
+        $output = $this->build('<!DOCTYPE html><html lang="fa" dir="rtl"><body><p>سلام</p></body></html>');
+
+        $this->assertStringContainsString('lang="fa"', $output);
+        $this->assertStringContainsString('dir="rtl"', $output);
+    }
+
+    /**
+     * The charset handling that keeps non-Latin text readable must not cost
+     * the root attributes, and vice versa — fixing either one naively breaks
+     * the other.
+     */
+    public function test_right_to_left_text_is_not_entity_encoded(): void
+    {
+        $output = $this->build('<html lang="fa" dir="rtl"><body><h1>سلام دنیا</h1></body></html>');
+
+        $this->assertStringContainsString('سلام دنیا', $output);
+        $this->assertStringNotContainsString('&#1587;', $output);
+    }
+
+    public function test_a_page_with_no_html_tag_still_gets_utf8_treatment(): void
+    {
+        $output = $this->build('<p>سلام دنیا</p>');
+
+        $this->assertStringContainsString('سلام دنیا', $output);
+    }
+
+    /**
+     * Inline base64 images are already self-contained. Resolving them against
+     * the page would turn a working image into a 404.
+     */
+    public function test_data_uri_images_are_left_untouched(): void
+    {
+        $uri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk';
+        $output = $this->build('<img src="'.$uri.'">');
+
+        $this->assertStringContainsString($uri, $output);
+        $this->assertStringNotContainsString('shop.example.com/data:', $output);
+    }
+
+    /**
+     * A space in a URL is invalid but common in asset filenames, and the
+     * browser will not fetch it unencoded.
+     */
+    public function test_urls_containing_spaces_are_encoded_not_dropped(): void
+    {
+        $output = $this->build('<link rel="preload" as="font" href="/assets/Yekan Bakh Bold.woff2">');
+
+        $this->assertStringContainsString('https://shop.example.com/assets/Yekan%20Bakh%20Bold.woff2', $output);
+    }
+
+    /**
      * Splitting a srcset on commas is the obvious implementation and it is
      * wrong. A candidate's URL runs to the next *whitespace*; commas inside it
      * are legal, and every CDN that encodes transforms in the path uses them.
