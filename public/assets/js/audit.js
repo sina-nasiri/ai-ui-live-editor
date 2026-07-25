@@ -21,6 +21,7 @@ export function runAudit(doc, view) {
     if (!doc || !doc.body) return [];
 
     const findings = [
+        ...checkStylesheetsLoaded(doc),
         ...checkLanguage(doc),
         ...checkContrast(doc, view),
         ...checkImages(doc),
@@ -36,6 +37,37 @@ export function runAudit(doc, view) {
 }
 
 // ------------------------------------------------------------------- checks
+
+/**
+ * Say so when the page is being audited without its own CSS.
+ *
+ * Some CDNs refuse the relay's request, and the page then renders with only
+ * whatever was inline. Every colour the audit measures after that is the
+ * browser default rather than the design, so the contrast findings below are
+ * about a page nobody will ever see. Reporting them without this warning is
+ * how a reviewer ends up filing bugs against a stylesheet that simply did not
+ * arrive.
+ */
+function checkStylesheetsLoaded(doc) {
+    const links = Array.from(doc.querySelectorAll('link[rel~="stylesheet"]'));
+    if (!links.length) return [];
+
+    // A sheet that failed to load leaves its <link> with no entry here.
+    const loaded = new Set(Array.from(doc.styleSheets, (sheet) => sheet.ownerNode));
+    const missing = links.filter((link) => !loaded.has(link));
+    if (!missing.length) return [];
+
+    return [
+        finding(
+            'high',
+            `${missing.length} of ${links.length} stylesheets did not load`,
+            doc.body,
+            'The page is rendering without its own CSS, so the colour, size and '
+            + 'spacing findings below describe browser defaults rather than the '
+            + 'real design. Treat them as unreliable until the stylesheet loads.'
+        ),
+    ];
+}
 
 function checkLanguage(doc) {
     const lang = doc.documentElement.getAttribute('lang');
@@ -65,6 +97,13 @@ function checkContrast(doc, view) {
         // A background image means we cannot know the real backdrop; a
         // confident wrong ratio is worse than no finding.
         if (!foreground || !background) continue;
+
+        // Fully transparent text is not a contrast failure. Tailwind's
+        // `text-transparent` is how gradient text (`bg-clip-text`) and
+        // stroked headings are built, and flattening alpha 0 onto the
+        // backdrop yields "#ffffff on #ffffff, 1.00:1" — a high-severity
+        // finding about text that has no colour to begin with.
+        if (foreground.a === 0) continue;
 
         const flat = flatten(foreground, background);
         const size = parseFloat(style.fontSize) || 16;

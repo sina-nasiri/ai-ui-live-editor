@@ -857,14 +857,25 @@ function renderTokens(tokens) {
               ])
             : null;
 
-    host.append(
+    // Each builder returns null for an empty group, and `append(null)` writes
+    // the string "null" into the panel. A page that ships no border radius —
+    // or whose stylesheet failed to load — hit exactly that.
+    const groups = [
         swatches('Text colours', tokens.colors),
         swatches('Surfaces', tokens.backgrounds),
         scale('Type scale', tokens.fontSizes),
         scale('Spacing', tokens.spacing),
         scale('Typefaces', tokens.fontFamilies),
-        scale('Radii', tokens.radii)
-    );
+        scale('Radii', tokens.radii),
+    ].filter(Boolean);
+
+    if (!groups.length) {
+        host.append(el('p', { class: 'hint', text: 'No tokens found — the page may not have loaded its stylesheets.' }));
+
+        return;
+    }
+
+    host.append(...groups);
 }
 
 // ------------------------------------------------------------ history panel

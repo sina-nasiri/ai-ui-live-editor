@@ -365,7 +365,18 @@ class PageSnapshot
         }
 
         foreach ($this->collect($xpath, '//link[@rel]') as $link) {
-            if (! str_contains(strtolower($link->getAttribute('rel')), 'stylesheet')) {
+            $rel = strtolower($link->getAttribute('rel'));
+            $as = strtolower($link->getAttribute('as'));
+
+            // A preload has to name the same URL the page ends up requesting,
+            // or the browser fetches the sheet twice and warns that the
+            // preload went unused. Fonts and images are not relayed — the
+            // `url()` inside a relayed sheet still points at the origin — so
+            // only `as="style"` needs to move with its stylesheet.
+            $isStylesheet = str_contains($rel, 'stylesheet');
+            $isStylePreload = $rel === 'preload' && $as === 'style';
+
+            if (! $isStylesheet && ! $isStylePreload) {
                 continue;
             }
 

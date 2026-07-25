@@ -312,6 +312,36 @@ class RealWorldMarkupTest extends TestCase
     }
 
     /**
+     * A build tool emits `<link rel="preload" as="style">` next to the
+     * `<link rel="stylesheet">` for the same file. If only the stylesheet
+     * moves to the relay the two no longer name the same URL, so the sheet is
+     * fetched twice and the browser warns the preload went unused.
+     */
+    public function test_a_style_preload_follows_its_stylesheet_to_the_relay(): void
+    {
+        $output = $this->build(
+            '<link rel="preload" as="style" href="/app.css">'
+            .'<link rel="stylesheet" href="/app.css">'
+        );
+
+        $expected = 'asset?u='.urlencode('https://shop.example.com/app.css');
+        $this->assertSame(2, substr_count($output, $expected), 'both links should name the relayed URL');
+    }
+
+    /**
+     * Fonts are a different case: the `url()` inside a relayed stylesheet is
+     * absolutised, not relayed, so the font still comes from the origin and
+     * its preload must keep pointing there.
+     */
+    public function test_a_font_preload_is_not_routed_through_the_relay(): void
+    {
+        $output = $this->build('<link rel="preload" as="font" href="/f.woff2" crossorigin>');
+
+        $this->assertStringContainsString('https://shop.example.com/f.woff2', $output);
+        $this->assertStringNotContainsString('asset?u=', $output);
+    }
+
+    /**
      * Frameworks preload the hero image this way, and the hero is usually the
      * first thing a reviewer looks at.
      */
