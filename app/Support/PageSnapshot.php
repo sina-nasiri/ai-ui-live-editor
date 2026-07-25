@@ -68,7 +68,13 @@ class PageSnapshot
         $html = $this->toUtf8($html);
         $document = $this->parse($html);
         $xpath = new DOMXPath($document);
-        $resolver = new UrlResolver($this->baseUrl);
+
+        // Read the page's own <base> before anything strips it. A document
+        // that declares one means every relative URL on it — including
+        // root-relative ones — resolves against that, not against the address
+        // we fetched. Ignoring it sends every image to the wrong host.
+        $effectiveBase = $this->effectiveBase($xpath);
+        $resolver = new UrlResolver($effectiveBase);
 
         $this->dropUnsafeElements($document, $xpath);
         $this->dropEventHandlers($xpath);
@@ -76,7 +82,7 @@ class PageSnapshot
         $this->rewriteStyles($xpath, $resolver);
         $this->neutraliseNavigation($xpath);
         $this->routeStylesheets($xpath, $resolver);
-        $this->injectHead($document, $xpath);
+        $this->injectHead($document, $xpath, $effectiveBase);
 
         $output = $document->saveHTML();
 
@@ -344,7 +350,30 @@ class PageSnapshot
         }
     }
 
-    private function injectHead(DOMDocument $document, DOMXPath $xpath): void
+    /**
+     * The URL relative references on this page actually resolve against.
+     *
+     * Normally the address we fetched. When the document declares its own
+     * `<base href>` — common in Angular apps and some CMS themes — that wins,
+     * exactly as it would in a browser. A relative base is itself resolved
+     * against the fetch address first.
+     */
+    private function effectiveBase(DOMXPath $xpath): string
+    {
+        foreach ($this->collect($xpath, '//base[@href]') as $base) {
+            $href = trim($base->getAttribute('href'));
+
+            if ($href === '') {
+                continue;
+            }
+
+            return (new UrlResolver($this->baseUrl))->resolve($href);
+        }
+
+        return $this->baseUrl;
+    }
+
+    private function injectHead(DOMDocument $document, DOMXPath $xpath, string $effectiveBase): void
     {
         $head = $xpath->query('//head')?->item(0);
 
@@ -361,7 +390,7 @@ class PageSnapshot
         // The parser's own Content-Type meta is already in <head> and already
         // says UTF-8, so a second charset declaration would only add noise.
         $base = $document->createElement('base');
-        $base->setAttribute('href', $this->baseUrl);
+        $base->setAttribute('href', $effectiveBase);
         $head->insertBefore($base, $head->firstChild);
 
         // Empty stylesheets the editor fills in at runtime. Declaring them
