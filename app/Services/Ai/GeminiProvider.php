@@ -37,6 +37,11 @@ class GeminiProvider extends BaseProvider
 
         $body = $response->json();
 
+        $this->recordUsage(
+            (int) ($body['usageMetadata']['promptTokenCount'] ?? 0),
+            (int) ($body['usageMetadata']['candidatesTokenCount'] ?? 0)
+        );
+
         if (isset($body['promptFeedback']['blockReason'])) {
             throw new AiException('Gemini declined this request. Try describing the change differently.', 422);
         }

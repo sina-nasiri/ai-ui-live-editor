@@ -10,9 +10,7 @@ it with a slider. Undo anything. Export real CSS to hand a developer.
 ![Laravel 12](https://img.shields.io/badge/Laravel-12-ff2d20)
 ![License MIT](https://img.shields.io/badge/License-MIT-green)
 
-> **Add a demo GIF here.** For a visual tool this is the single highest-leverage
-> thing in the README — record a 20-second loop of loading a site, selecting a
-> hero, asking for a change, and undoing it.
+![AI UI Live Editor in use](docs/demo.gif)
 
 ---
 
@@ -64,8 +62,12 @@ Requirements: PHP 8.2+ with `dom`, `libxml`, `mbstring`, and Composer.
 | **Inspector** | Colour, size, weight, spacing, radius, alignment — direct manipulation, no API call, no cost. |
 | **Edit text in place** | Click and type. Lands in the same undo history. |
 | **Give me 3 options** | Three genuinely different directions, previewed in place, apply the one you want. |
+| **Accept or reject each change** | An AI edit is a list, not a lump. Untick the one heading it got wrong and keep the rest. |
+| **Refine in place** | "No, less rounded" works — each element keeps its own conversation, so the model knows what "less" refers to. |
 | **Rewrite markup** | For the rare case where the structure itself has to change. |
 | **Undo / redo** | `Cmd/Ctrl+Z`. Every edit, every time. |
+| **Right-click anything** | Ask AI, critique, copy HTML, screenshot, pin a note, select parent. |
+| **Cancel** | Every AI request shows elapsed time and can be stopped. |
 
 ### Review
 
@@ -74,6 +76,8 @@ Requirements: PHP 8.2+ with `dom`, `libxml`, `mbstring`, and Composer.
 | **Accessibility audit** | WCAG contrast ratios, missing alt text, heading order, unlabelled fields, tap-target size, positive tabindex, missing `lang`. Runs in your browser — **no API key, no cost, no data leaves the page.** Exports as Markdown. |
 | **AI design critique** | Read-only feedback on hierarchy, contrast, spacing rhythm, copy clarity, and CTA prominence. Changes nothing, so there is nothing to undo. |
 | **Design tokens** | The palette, type scale, spacing scale and radii the page actually ships. Export as CSS custom properties. |
+| **Redline notes** | Pin numbered comments to elements and export them as Markdown. They change nothing, so they survive every edit around them. |
+| **Before / after** | Drag a handle across the page to reveal the original underneath. |
 
 ### Ship
 
@@ -81,9 +85,11 @@ Requirements: PHP 8.2+ with `dom`, `libxml`, `mbstring`, and Composer.
 |---|---|
 | **Copy CSS changes** | Real selectors, merged, ready for a pull request. |
 | **Download edited page** | Self-contained HTML for review or a deck. |
+| **Screenshot to PNG** | Any element, with its images and web fonts embedded. |
 | **Copy element HTML** | Clean markup, no editor artefacts. |
 | **Viewport presets** | 375 / 768 / 1280 / fit. |
-| **Session restore** | Refresh and your edits are still there. |
+| **Session restore** | Refresh and your edits — styles, copy changes and notes — are still there. |
+| **Cost meter** | Real token counts and spend for the session, from the provider's own numbers. |
 
 ### Keyboard
 
@@ -125,8 +131,9 @@ issue. The developer gets declarations against real selectors, not a screenshot.
 
 ```
 Browser ──▶ POST /proxy ──▶ UrlGuard      (blocks private networks, every redirect hop)
-                        └─▶ PageSnapshot  (strips scripts, absolutises URLs)
+        or  POST /import   PageSnapshot   (strips scripts, absolutises URLs)
                              │
+                             ├─▶ stylesheets rewritten to GET /asset ──▶ same-origin
                              ▼
                     Static snapshot in an iframe
                              │
@@ -136,7 +143,8 @@ Browser ──▶ POST /proxy ──▶ UrlGuard      (blocks private networks, 
                     patch stack in the browser  ◀───  { changes: [{ id, declarations }] }
                              │
                              ├─▶ one stylesheet in the preview
-                             ├─▶ undo / redo
+                             ├─▶ undo / redo, accept / reject
+                             ├─▶ before/after, PNG capture
                              └─▶ CSS export
 ```
 
@@ -152,8 +160,16 @@ reappearing, no site JavaScript fighting your clicks.
 of the selection — element ids, text, and the styles that matter — and returns a
 list of CSS declarations keyed to those ids. Compared to round-tripping raw
 HTML, that is roughly an order of magnitude fewer tokens, it makes it impossible
-for the model to delete your copy, and it means undo is popping a stack and
-export is serialising it.
+for the model to delete your copy, and it means undo is popping a stack, export
+is serialising it, before/after is rendering without it, and accept/reject is
+flipping one entry in it.
+
+**Sub-resources are relayed, not linked.** A cross-origin stylesheet is
+readable by the browser but not by script — `sheet.cssRules` throws. That one
+restriction blocks reading a site's design tokens, finding its `@font-face`
+sources, and capturing an element to PNG without tainting the canvas. Routing
+stylesheets through `/asset` makes them same-origin and removes all three
+limits at once. It also renders pages whose CDN refuses the server's request.
 
 ---
 
@@ -237,16 +253,18 @@ or `Alt + ↑`.
 
 ## Limitations — read before you file a bug
 
-- **JavaScript-rendered content will not appear.** Deliberate. If a site renders
-  everything client-side, you will get an empty shell.
-- **There is no screenshot button.** The previous one never worked — it depended
-  on a library that was never loaded, and the fallback tainted the canvas so the
-  download failed silently. Rather than ship something broken, use your
-  browser's own screenshot tool (Firefox: right-click → Take Screenshot; Chrome
-  DevTools: `Cmd/Ctrl+Shift+P` → "Capture node screenshot"), or export the page.
-  A proper implementation is [tracked as an issue](https://github.com/sina-nasiri/ai-ui-live-editor/issues).
+- **JavaScript-rendered content will not appear.** Deliberate — scripts are
+  stripped. If a site renders everything client-side you will get an empty
+  shell; use **Paste** with the DOM copied from DevTools instead.
+- **Screenshots fall back on unreachable fonts.** Images and `@font-face`
+  sources are fetched through the app's own relay and embedded, so the canvas
+  is never tainted. A font the relay cannot fetch falls back to a system face,
+  and the toast says so rather than pretending otherwise.
 - **Automated accessibility checks catch roughly a third of WCAG.** They are a
   first pass, not a certificate.
+- **Session restore matches elements by document order.** If the page changed
+  since you saved, edits whose target has moved are dropped and reported, not
+  guessed at.
 - **Edits are not saved to the site.** This is a sandbox. Nothing you do here
   touches the page you loaded.
 
@@ -262,12 +280,21 @@ for how you use it.
 
 ## Roadmap
 
-- [ ] Working element screenshots
-- [ ] Paste-HTML / upload-file mode (edit localhost, staging, and authenticated pages without the proxy)
-- [ ] Annotation and redline mode with exportable comments
-- [ ] Side-by-side before/after comparison
+- [x] Element screenshots
+- [x] Paste-HTML / upload-file mode
+- [x] Annotation and redline mode with exportable notes
+- [x] Before/after comparison
+- [x] Per-change accept/reject
+- [x] Cost and token metering
 - [ ] Browser extension — no proxy, no CORS, works on pages you are logged into
-- [ ] Streaming responses
+- [ ] Multi-page projects and shareable review links
+
+**Not planned: token streaming.** It sounds like the fix for latency, but the
+model returns a JSON patch, and half a JSON patch is not something you can
+render or apply — there is nothing useful to show mid-flight. The actual
+complaint was a spinner with no feedback and no way out, so requests now show
+elapsed time and can be cancelled. If someone finds a workload where streaming
+genuinely helps, the provider layer is the right place for it.
 
 ## Contributing
 

@@ -20,6 +20,7 @@
         <label class="sr-only" for="url-input">Website URL</label>
         <input type="url" id="url-input" placeholder="https://example.com" required autocomplete="url" spellcheck="false">
         <button type="submit" class="btn btn-primary" id="load-btn">Load</button>
+        <button type="button" class="btn" id="import-btn" title="Paste or upload HTML instead — works for localhost, staging and logged-in pages">Paste</button>
     </form>
 
     <div class="seg" role="group" aria-label="Preview width">
@@ -29,16 +30,26 @@
         <button type="button" data-width="0" aria-pressed="true" title="Fill available width">Fit</button>
     </div>
 
-    <button type="button" class="btn" id="undo-btn" disabled title="Undo (Ctrl/Cmd+Z)">Undo</button>
-    <button type="button" class="btn" id="redo-btn" disabled title="Redo (Ctrl/Cmd+Shift+Z)">Redo</button>
-    <button type="button" class="btn btn-primary" id="ask-btn" disabled title="Describe a change (Ctrl/Cmd+K)">Ask AI</button>
+    <div class="toolbar-group">
+        <button type="button" class="btn" id="undo-btn" disabled title="Undo (Ctrl/Cmd+Z)">Undo</button>
+        <button type="button" class="btn" id="redo-btn" disabled title="Redo (Ctrl/Cmd+Shift+Z)">Redo</button>
+        <button type="button" class="btn btn-primary" id="ask-btn" disabled title="Describe a change (Ctrl/Cmd+K)">Ask AI</button>
+    </div>
+
+    <div class="toolbar-group">
+        <button type="button" class="btn" id="compare-btn" disabled aria-pressed="false" title="Drag to compare before and after">Compare</button>
+        <button type="button" class="btn" id="notes-btn" disabled aria-pressed="false" title="Redline mode — click elements to pin review notes">Notes</button>
+    </div>
 
     <div class="spacer"></div>
 
-    <span class="pill" id="key-pill"><span class="dot"></span><span id="key-pill-text">No API key</span></span>
-    <button type="button" class="btn btn-ghost" id="export-btn" disabled title="Export your work">Export</button>
-    <button type="button" class="btn btn-ghost" id="settings-btn" title="Settings">Settings</button>
-    <a class="btn btn-ghost" href="{{ $repoUrl }}" target="_blank" rel="noopener noreferrer">GitHub</a>
+    <div class="toolbar-group">
+        <span class="pill" id="spend-pill" hidden title="Tokens and cost for this session"><span id="spend-text"></span></span>
+        <span class="pill" id="key-pill"><span class="dot"></span><span id="key-pill-text">No API key</span></span>
+        <button type="button" class="btn btn-ghost" id="export-btn" disabled title="Export your work">Export</button>
+        <button type="button" class="btn btn-ghost" id="settings-btn" title="Settings">Settings</button>
+        <a class="btn btn-ghost" href="{{ $repoUrl }}" target="_blank" rel="noopener noreferrer" title="Star on GitHub">GitHub</a>
+    </div>
 </header>
 
 <div class="workspace">
@@ -63,6 +74,8 @@
                     <div>
                         <div class="spinner"></div>
                         <p id="busy-text">Loading…</p>
+                        <p class="hint" id="busy-elapsed"></p>
+                        <button type="button" class="btn btn-sm" id="cancel-btn" hidden>Cancel</button>
                     </div>
                 </div>
             </div>
@@ -93,6 +106,15 @@
                 <button type="button" class="btn btn-sm" id="critique-btn" disabled>Critique selection</button>
                 <p class="hint">Read-only feedback on hierarchy, contrast, spacing and copy. Changes nothing.</p>
                 <div id="critique-results"></div>
+            </div>
+
+            <div class="group">
+                <h3>Review notes</h3>
+                <button type="button" class="btn btn-sm" id="note-add-btn" disabled>Add note to selection</button>
+                <button type="button" class="btn btn-sm" id="note-copy-btn" hidden>Copy notes</button>
+                <button type="button" class="btn btn-sm" id="note-clear-btn" hidden>Clear</button>
+                <p class="hint">Pinned comments that change nothing on the page. Turn on <strong>Notes</strong> in the toolbar to pin by clicking.</p>
+                <div id="note-results"></div>
             </div>
         </div>
 
@@ -205,10 +227,75 @@
             <button type="button" class="btn" id="export-css-file">Download CSS changes</button>
             <button type="button" class="btn" id="export-html-copy">Copy selected element HTML</button>
             <button type="button" class="btn" id="export-page">Download edited page (standalone HTML)</button>
+            <button type="button" class="btn" id="export-shot">Screenshot selected element (PNG)</button>
+            <button type="button" class="btn" id="export-notes">Copy review notes</button>
             <p class="hint">
                 The CSS export uses real selectors and merges every edit, so it is the file to
                 hand a developer. The HTML export is a self-contained snapshot for review.
             </p>
+        </div>
+    </form>
+</dialog>
+
+{{-- Paste / upload markup --}}
+<dialog id="import-dialog">
+    <form method="dialog">
+        <div class="dialog-head">
+            <h2>Paste or upload HTML</h2>
+            <button type="button" class="btn btn-ghost btn-sm" data-close aria-label="Close">×</button>
+        </div>
+
+        <div class="dialog-body">
+            <p class="hint" style="margin-top:0">
+                For anything the proxy cannot reach: a local dev server, a staging site behind
+                a login, a page you are signed into, or a single component. In your browser use
+                <em>Save page as…</em> or copy the element's HTML from DevTools.
+            </p>
+
+            <label class="sr-only" for="import-html">HTML</label>
+            <textarea class="prompt-box" id="import-html" style="min-height:150px;font-family:var(--mono);font-size:12px"
+                      placeholder="&lt;section class=&quot;hero&quot;&gt;…&lt;/section&gt;"></textarea>
+
+            <div class="row" style="margin-top:10px">
+                <label for="import-file">…or a file</label>
+                <input type="file" class="field" id="import-file" accept=".html,.htm,text/html">
+            </div>
+
+            <div class="row">
+                <label for="import-base">Base URL</label>
+                <input type="url" class="field" id="import-base" placeholder="https://example.com (optional)">
+            </div>
+
+            <p class="hint">
+                A base URL is only needed if the markup references images or stylesheets by
+                relative path. Without one they simply will not load.
+            </p>
+        </div>
+
+        <div class="dialog-foot">
+            <button type="button" class="btn" data-close>Cancel</button>
+            <button type="button" class="btn btn-primary" id="import-go">Open in editor</button>
+        </div>
+    </form>
+</dialog>
+
+{{-- Add a review note --}}
+<dialog id="note-dialog">
+    <form method="dialog">
+        <div class="dialog-head">
+            <h2>Review note</h2>
+            <button type="button" class="btn btn-ghost btn-sm" data-close aria-label="Close">×</button>
+        </div>
+
+        <div class="dialog-body">
+            <div class="target" id="note-target"></div>
+            <label class="sr-only" for="note-input">Note</label>
+            <textarea class="prompt-box" id="note-input" placeholder="The CTA competes with the headline — nothing tells me where to look first."></textarea>
+        </div>
+
+        <div class="dialog-foot">
+            <button type="button" class="btn" data-close>Cancel</button>
+            <button type="button" class="btn btn-primary" id="note-save">Pin note</button>
         </div>
     </form>
 </dialog>

@@ -32,7 +32,32 @@ class PageSnapshot
         private readonly string $baseUrl,
         /** Charset from the HTTP Content-Type header, if the server sent one. */
         private readonly ?string $charsetHint = null,
+        /**
+         * URL template for routing sub-resources back through this app, with
+         * a single %s for the target URL. Null leaves them pointing at origin.
+         */
+        private readonly ?string $assetProxy = null,
     ) {}
+
+    /**
+     * Route a sub-resource through this app so the browser sees it as
+     * same-origin.
+     *
+     * This matters more than it looks. A cross-origin stylesheet is readable
+     * by the browser but *not* by script: `sheet.cssRules` throws. That single
+     * restriction blocks reading the site's CSS custom properties, finding its
+     * `@font-face` sources, and capturing an element to PNG without tainting
+     * the canvas. Proxying stylesheets removes all three limits at once — and
+     * incidentally renders pages whose CDN refuses our server's request.
+     */
+    private function proxied(string $url): string
+    {
+        if ($this->assetProxy === null || $url === '' || str_starts_with($url, 'data:')) {
+            return $url;
+        }
+
+        return sprintf($this->assetProxy, rawurlencode($url));
+    }
 
     public function build(string $html): string
     {
@@ -50,6 +75,7 @@ class PageSnapshot
         $this->rewriteUrls($xpath, $resolver);
         $this->rewriteStyles($xpath, $resolver);
         $this->neutraliseNavigation($xpath);
+        $this->routeStylesheets($xpath, $resolver);
         $this->injectHead($document, $xpath);
 
         $output = $document->saveHTML();
@@ -287,6 +313,34 @@ class PageSnapshot
         foreach ($this->collect($xpath, '//form') as $form) {
             $form->removeAttribute('action');
             $form->setAttribute('onsubmit', 'return false');
+        }
+    }
+
+    private function routeStylesheets(DOMXPath $xpath, UrlResolver $resolver): void
+    {
+        if ($this->assetProxy === null) {
+            return;
+        }
+
+        foreach ($this->collect($xpath, '//link[@rel]') as $link) {
+            if (! str_contains(strtolower($link->getAttribute('rel')), 'stylesheet')) {
+                continue;
+            }
+
+            $href = $link->getAttribute('href');
+            if ($href !== '') {
+                $link->setAttribute('href', $this->proxied($resolver->resolve($href)));
+            }
+        }
+
+        // An @import inside an inline <style> pulls in a second sheet that
+        // would be cross-origin all over again.
+        foreach ($this->collect($xpath, '//style') as $style) {
+            $style->textContent = preg_replace_callback(
+                '/@import\s+(?:url\(\s*)?([\'"]?)(https?:\/\/[^\'")]+)\1\s*\)?/i',
+                fn (array $m): string => '@import url("'.$this->proxied($m[2]).'")',
+                $style->textContent
+            ) ?? $style->textContent;
         }
     }
 

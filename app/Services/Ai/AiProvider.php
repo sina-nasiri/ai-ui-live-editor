@@ -26,4 +26,14 @@ interface AiProvider
      * @throws AiException
      */
     public function structured(string $system, string $prompt, array $schema, string $model, int $maxTokens): array;
+
+    /**
+     * Token usage from the most recent call.
+     *
+     * Reported rather than estimated: a running cost is only worth showing if
+     * it is the real number the vendor billed.
+     *
+     * @return array{input:int,output:int}
+     */
+    public function lastUsage(): array;
 }

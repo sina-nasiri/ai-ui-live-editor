@@ -1,31 +1,57 @@
 import { $, $$, el, clear, describe, debounce, copyText } from './util.js';
 import { toast } from './toast.js';
 import {
-    state, subscribe, undo, redo, find, saveSession, loadSession, restorePatches, forgetSession,
+    state, subscribe, undo, redo, find, saveSession, loadSession, restoreSession, forgetSession,
+    setRuleEnabled,
 } from './store.js';
-import { loadSnapshot, onSelectionChange, onKeyDown, select, deselect, scrollTo, ancestry } from './frame.js';
+import {
+    loadSnapshot, onSelectionChange, onKeyDown, onClickIntercept, onReflow,
+    select, deselect, scrollTo, ancestry,
+} from './frame.js';
 import { mountInspector, renderInspector } from './inspector.js';
 import { runAudit, auditAsMarkdown } from './audit.js';
 import { extractTokens, tokensAsCss } from './tokens.js';
 import {
-    settings, initSettings, savePrefs, currentProvider, hasUsableKey,
+    settings, initSettings, savePrefs, currentProvider, hasUsableKey, spend, cancelRequest,
     requestEdit, requestVariants, requestCritique, requestRestructure, previewVariant, applyChanges,
 } from './ai.js';
 import {
     copyChangesAsCss, downloadChangesAsCss, copyElementHtml, downloadPage,
 } from './exporter.js';
+import { downloadCapture } from './capture.js';
+import { toggleCompare, stopCompare, isComparing } from './compare.js';
+import {
+    setAnnotating, isAnnotating, addAnnotation, removeAnnotation, clearAnnotations,
+    renderPins, annotationsAsMarkdown, onAnnotationsChange,
+} from './annotate.js';
+import { installContextMenu } from './contextmenu.js';
 
 const config = window.__EDITOR__;
 const base = config.base;
 
 let auditFindings = [];
+let lastChangeset = null;
+let pendingNoteTarget = null;
+let elapsedTimer = null;
 
 // --------------------------------------------------------------- bootstrap
 
 initSettings(config.ai);
 mountInspector($('#panel-style'), { onTextEdit: () => renderInspector() });
 onSelectionChange(handleSelection);
-subscribe(debounce(() => { renderHistory(); saveSession(); }, 250));
+onAnnotationsChange(() => { renderNotes(); saveSession(); });
+
+// Pins are positioned from live geometry, so they have to be redrawn
+// whenever the page reflows or an edit changes an element's box.
+onReflow(() => renderPins());
+
+onClickIntercept((node) => {
+    if (!isAnnotating()) return false;
+    openNoteDialog(node);
+    return true;
+});
+
+subscribe(debounce(() => { renderHistory(); renderPins(); saveSession(); }, 250));
 subscribe(syncButtons);
 
 wireToolbar();
@@ -41,11 +67,8 @@ offerSessionRestore();
 // ------------------------------------------------------------------ loading
 
 async function loadUrl(url) {
-    setBusy(true, 'Fetching and cleaning the page…');
-    setStatus('Loading…');
-
-    try {
-        const response = await fetch(`${base}proxy`, {
+    return openSnapshot(url, () =>
+        fetch(`${base}proxy`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -53,7 +76,37 @@ async function loadUrl(url) {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').content,
             },
             body: JSON.stringify({ url }),
-        });
+        })
+    );
+}
+
+/** Pasted markup and uploaded files take the same path as a proxied URL. */
+async function loadImport({ html, file, baseUrl }) {
+    const body = new FormData();
+    if (file) body.append('file', file);
+    else body.append('html', html);
+    if (baseUrl) body.append('base', baseUrl);
+
+    return openSnapshot(baseUrl || 'pasted markup', () =>
+        fetch(`${base}import`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json, text/html',
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').content,
+            },
+            body,
+        })
+    );
+}
+
+async function openSnapshot(label, request) {
+    setBusy(true, 'Fetching and cleaning the page…');
+    setStatus('Loading…');
+    stopCompare();
+    setAnnotating(false);
+
+    try {
+        const response = await request();
 
         if (!response.ok) {
             let message = `The page could not be loaded (${response.status}).`;
@@ -64,20 +117,26 @@ async function loadUrl(url) {
             throw new Error(message);
         }
 
-        await loadSnapshot($('#preview'), await response.text(), url);
+        const doc = await loadSnapshot($('#preview'), await response.text(), label);
+        installContextMenu(doc, contextActions());
 
         $('#placeholder').dataset.open = 'false';
         setStatus('Ready — click anything in the page to select it.');
         toast('Page loaded.', 'success');
 
         auditFindings = [];
+        lastChangeset = null;
         clear($('#audit-results'));
         clear($('#critique-results'));
         clear($('#tokens-results'));
+        clear($('#note-results'));
         syncButtons();
+
+        return doc;
     } catch (error) {
         setStatus('Could not load that page.');
         toast(error.message, 'error', 8000);
+        return null;
     } finally {
         setBusy(false);
     }
@@ -85,27 +144,34 @@ async function loadUrl(url) {
 
 function offerSessionRestore() {
     const session = loadSession();
-    if (!session) return;
+    if (!session || !session.patches.length) return;
 
     const age = Math.round((Date.now() - session.savedAt) / 60000);
-    const label = age < 1 ? 'just now' : age < 60 ? `${age} min ago` : `${Math.round(age / 60)} h ago`;
+    const when = age < 1 ? 'just now' : age < 60 ? `${age} min ago` : `${Math.round(age / 60)} h ago`;
 
-    toast(`Unsaved session from ${label} — press Load with the same URL to restore it.`, 'info', 9000);
+    toast(`${session.patches.length} unsaved edits from ${when} — press Load to restore them.`, 'info', 9000);
     $('#url-input').value = session.url;
 
-    // Restoring the patch stack only makes sense once the same page is back.
-    const once = async () => {
-        if (state.url === session.url && session.patches.length) {
-            restorePatches(session.patches);
-            toast(`Restored ${session.patches.length} previous edits.`, 'success');
-        } else {
-            forgetSession();
-        }
-        unsubscribe();
-    };
-
+    // Replaying only makes sense once the same page is back on screen.
     const unsubscribe = subscribe(() => {
-        if (state.doc) { once(); }
+        if (!state.doc) return;
+        unsubscribe();
+
+        if (state.url !== session.url) {
+            forgetSession();
+            return;
+        }
+
+        const { restored, skipped } = restoreSession(session.patches, session.annotations);
+        renderNotes();
+
+        toast(
+            skipped
+                ? `Restored ${restored} edits. ${skipped} could not be replaced — the page has changed since.`
+                : `Restored ${restored} edits.`,
+            skipped ? 'warning' : 'success',
+            7000
+        );
     });
 }
 
@@ -170,6 +236,71 @@ function wireToolbar() {
     $('#ask-btn').addEventListener('click', openPrompt);
     $('#settings-btn').addEventListener('click', openSettings);
     $('#export-btn').addEventListener('click', () => $('#export-dialog').showModal());
+    $('#import-btn').addEventListener('click', () => $('#import-dialog').showModal());
+    $('#cancel-btn').addEventListener('click', () => {
+        if (cancelRequest()) toast('Request cancelled.', 'info', 2500);
+        setBusy(false);
+    });
+
+    $('#compare-btn').addEventListener('click', (event) => {
+        if (!state.patches.length && !isComparing()) {
+            toast('Make an edit first — there is nothing to compare yet.', 'warning');
+            return;
+        }
+        const on = toggleCompare($('#frame-shell'));
+        event.currentTarget.setAttribute('aria-pressed', String(on));
+    });
+
+    $('#notes-btn').addEventListener('click', (event) => {
+        const on = setAnnotating(!isAnnotating());
+        event.currentTarget.setAttribute('aria-pressed', String(on));
+        setStatus(on ? 'Redline mode — click any element to pin a note.' : 'Ready — click anything to select it.');
+        if (on) showTab('review');
+    });
+}
+
+/**
+ * The right-click menu. Actions resolve their target at click time, so they
+ * keep working on elements the AI replaced after the page loaded.
+ */
+function contextActions() {
+    return [
+        { label: 'Ask AI about this…', run: (node) => { select(node); openPrompt(); } },
+        { label: 'Critique this', run: (node) => { select(node); $('#critique-btn').click(); } },
+        { separator: true },
+        {
+            label: 'Copy HTML',
+            run: async (node) => {
+                await copyElementHtml(node);
+                toast('Element HTML copied.', 'success');
+            },
+        },
+        { label: 'Screenshot to PNG', run: (node) => captureNode(node) },
+        { separator: true },
+        { label: 'Pin a review note', run: (node) => openNoteDialog(node) },
+        { label: 'Select parent', run: (node) => node.parentElement && select(node.parentElement) },
+    ];
+}
+
+async function captureNode(node) {
+    setBusy(true, 'Rendering the element…');
+
+    try {
+        const name = `${describe(node).replace(/[^a-z0-9]+/gi, '-')}.png`;
+        const { missingFonts } = await downloadCapture(node, state.view, name);
+
+        toast(
+            missingFonts
+                ? 'Screenshot saved. Some web fonts could not be embedded, so those fall back to a system face.'
+                : 'Screenshot saved.',
+            missingFonts ? 'warning' : 'success',
+            missingFonts ? 8000 : 4000
+        );
+    } catch (error) {
+        toast(error.message, 'error', 8000);
+    } finally {
+        setBusy(false);
+    }
 }
 
 function wireTabs() {
@@ -275,6 +406,47 @@ function wireDialogs() {
     });
 
     $('#export-page').addEventListener('click', () => downloadPage());
+
+    $('#export-shot').addEventListener('click', () => {
+        if (!state.selected) return toast('Select an element first.', 'warning');
+        $('#export-dialog').close();
+        captureNode(state.selected);
+    });
+
+    $('#export-notes').addEventListener('click', async () => {
+        await copyText(annotationsAsMarkdown());
+        toast('Review notes copied as Markdown.', 'success');
+    });
+
+    $('#import-go').addEventListener('click', async () => {
+        const file = $('#import-file').files[0] || null;
+        const html = $('#import-html').value.trim();
+        const baseUrl = $('#import-base').value.trim();
+
+        if (!file && !html) return toast('Paste some HTML or choose a file.', 'warning');
+
+        $('#import-dialog').close();
+        await loadImport({ html, file, baseUrl });
+    });
+
+    $('#note-save').addEventListener('click', () => {
+        const note = $('#note-input').value.trim();
+        if (!note || !pendingNoteTarget) return;
+
+        addAnnotation(pendingNoteTarget, note);
+        $('#note-dialog').close();
+        $('#note-input').value = '';
+        pendingNoteTarget = null;
+        showTab('review');
+    });
+}
+
+function openNoteDialog(node) {
+    pendingNoteTarget = node;
+    $('#note-target').textContent = describe(node);
+    $('#note-input').value = '';
+    $('#note-dialog').showModal();
+    $('#note-input').focus();
 }
 
 function openPrompt() {
@@ -339,21 +511,87 @@ async function runApply() {
 
     const restructure = $('#restructure-toggle').checked;
     $('#prompt-dialog').close();
-    setBusy(true, restructure ? 'Rewriting the markup…' : 'Working out the change…');
+    setBusy(true, restructure ? 'Rewriting the markup…' : 'Working out the change…', true);
 
     try {
         const result = restructure
             ? await requestRestructure(state.selected, prompt)
             : await requestEdit(state.selected, prompt);
 
-        renderInspector();
+        if (result.patch) {
+            lastChangeset = { patch: result.patch, summary: result.summary };
+            renderChangeset();
+        } else {
+            renderInspector();
+        }
+
+        showTab('style');
         toast(result.summary || 'Applied.', 'success', 6000);
         $('#prompt-input').value = '';
+        syncSpend();
     } catch (error) {
-        toast(error.message, 'error', 9000);
+        if (error.message !== 'Cancelled.') toast(error.message, 'error', 9000);
     } finally {
         setBusy(false);
     }
+}
+
+/**
+ * The change list, with a switch per element.
+ *
+ * A model rarely gets a whole section wrong — it gets one heading wrong.
+ * Without this the only remedy is undo, which throws away the good work too.
+ */
+function renderChangeset() {
+    const host = $('#panel-style');
+    clear(host);
+
+    const { patch, summary } = lastChangeset;
+
+    host.append(
+        el('div', { class: 'group' }, [
+            el('h3', { text: 'This change' }),
+            summary ? el('p', { class: 'hint', style: 'margin-top:0', text: summary }) : null,
+
+            ...patch.rules.map((rule) =>
+                changeRow(patch, rule)
+            ),
+
+            el('button', {
+                type: 'button',
+                class: 'btn btn-sm',
+                text: 'Back to styles',
+                onClick: () => { lastChangeset = null; renderInspector(); },
+            }),
+        ])
+    );
+}
+
+function changeRow(patch, rule) {
+    const box = el('input', { type: 'checkbox', checked: rule.enabled !== false });
+
+    const row = el('label', { class: 'change', dataset: { enabled: String(rule.enabled !== false) } }, [
+        box,
+        el('span', { class: 'change-body' }, [
+            el('strong', { text: rule.label || rule.uie }),
+            el('code', {
+                text: rule.declarations.map((d) => `${d.property}: ${d.value}`).join('; '),
+            }),
+        ]),
+    ]);
+
+    box.addEventListener('change', () => {
+        setRuleEnabled(patch.id, rule.uie, box.checked);
+        row.dataset.enabled = String(box.checked);
+    });
+
+    // Hovering a row shows you which element it is talking about.
+    row.addEventListener('mouseenter', () => {
+        const node = find(rule.uie);
+        if (node) scrollTo(node);
+    });
+
+    return row;
 }
 
 /**
@@ -369,7 +607,7 @@ async function runVariants() {
     if (!hasUsableKey()) { $('#prompt-dialog').close(); openSettings(); return toast('Add an API key first.', 'warning'); }
 
     $('#prompt-dialog').close();
-    setBusy(true, 'Generating three directions…');
+    setBusy(true, 'Generating three directions…', true);
 
     try {
         const { variants } = await requestVariants(state.selected, prompt, 3);
@@ -446,18 +684,67 @@ function wireReviewPanel() {
         if (!state.selected) return toast('Select an element first.', 'warning');
         if (!hasUsableKey()) { openSettings(); return toast('Add an API key first.', 'warning'); }
 
-        setBusy(true, 'Reading the design…');
+        setBusy(true, 'Reading the design…', true);
 
         try {
             const result = await requestCritique(state.selected);
             renderCritique(result);
             showTab('review');
         } catch (error) {
-            toast(error.message, 'error', 9000);
+            if (error.message !== 'Cancelled.') toast(error.message, 'error', 9000);
         } finally {
             setBusy(false);
+            syncSpend();
         }
     });
+
+    $('#note-add-btn').addEventListener('click', () => {
+        if (!state.selected) return toast('Select an element first.', 'warning');
+        openNoteDialog(state.selected);
+    });
+
+    $('#note-copy-btn').addEventListener('click', async () => {
+        await copyText(annotationsAsMarkdown());
+        toast('Review notes copied as Markdown.', 'success');
+    });
+
+    $('#note-clear-btn').addEventListener('click', () => {
+        clearAnnotations();
+        toast('Notes cleared.', 'info', 2500);
+    });
+}
+
+function renderNotes() {
+    const host = $('#note-results');
+    if (!host) return;
+    clear(host);
+
+    const notes = state.annotations;
+    $('#note-copy-btn').hidden = notes.length === 0;
+    $('#note-clear-btn').hidden = notes.length === 0;
+
+    if (!notes.length) {
+        host.append(el('p', { class: 'hint', text: 'No notes pinned yet.' }));
+        return;
+    }
+
+    for (const note of notes) {
+        host.append(
+            el('div', { class: 'finding note-item', dataset: { severity: 'high' } }, [
+                el('h4', {}, [
+                    el('span', { class: 'note-num', text: String(note.number) }),
+                    el('span', { text: note.label }),
+                ]),
+                el('p', { text: note.note }),
+                el('button', {
+                    type: 'button',
+                    class: 'btn btn-sm',
+                    text: 'Remove',
+                    onClick: (event) => { event.stopPropagation(); removeAnnotation(note.id); },
+                }),
+            ])
+        );
+    }
 }
 
 function renderAudit() {
@@ -615,9 +902,46 @@ function showTab(name) {
     if (tab) tab.click();
 }
 
-function setBusy(on, message = '') {
+/**
+ * A model call can run for tens of seconds. An unmoving spinner with no way
+ * out reads as a hang, so this counts up and offers a way to stop.
+ */
+function setBusy(on, message = '', cancellable = false) {
     $('#busy').dataset.open = String(on);
     if (message) $('#busy-text').textContent = message;
+
+    $('#cancel-btn').hidden = !on || !cancellable;
+    clearInterval(elapsedTimer);
+
+    if (!on) {
+        $('#busy-elapsed').textContent = '';
+        return;
+    }
+
+    const started = performance.now();
+    $('#busy-elapsed').textContent = '0s';
+    elapsedTimer = setInterval(() => {
+        $('#busy-elapsed').textContent = `${Math.round((performance.now() - started) / 1000)}s`;
+    }, 500);
+}
+
+/** Running token and cost total, so exploring never produces a bill surprise. */
+function syncSpend() {
+    const pill = $('#spend-pill');
+
+    if (!spend.requests) {
+        pill.hidden = true;
+        return;
+    }
+
+    const tokens = spend.inputTokens + spend.outputTokens;
+    const cost = spend.priced ? `$${spend.costUsd.toFixed(4)}` : `~$${spend.costUsd.toFixed(4)}+`;
+
+    pill.hidden = false;
+    $('#spend-text').textContent = `${spend.requests} calls · ${tokens.toLocaleString()} tokens · ${cost}`;
+    pill.title = spend.priced
+        ? `${spend.inputTokens.toLocaleString()} in / ${spend.outputTokens.toLocaleString()} out this session`
+        : 'One or more models used has no published price, so this total is a lower bound.';
 }
 
 function setStatus(text) {
@@ -630,7 +954,10 @@ function syncButtons() {
 
     $('#ask-btn').disabled = !hasSelection;
     $('#critique-btn').disabled = !hasSelection;
+    $('#note-add-btn').disabled = !hasSelection;
     $('#export-btn').disabled = !loaded;
+    $('#compare-btn').disabled = !loaded;
+    $('#notes-btn').disabled = !loaded;
     $('#undo-btn').disabled = state.patches.length === 0;
     $('#redo-btn').disabled = state.undone.length === 0;
 }

@@ -113,6 +113,45 @@ class UrlGuardTest extends TestCase
         $guard->validate('https://notexample.com/a');
     }
 
+    /**
+     * The attack the address list exists for: a perfectly ordinary hostname
+     * that happens to resolve into the private network.
+     */
+    public function test_a_hostname_resolving_to_a_private_address_is_refused(): void
+    {
+        $guard = new UrlGuard(false, [], static fn (string $host): array => ['169.254.169.254']);
+
+        $this->expectException(BlockedUrlException::class);
+        $guard->validate('https://totally-innocent.example/');
+    }
+
+    /**
+     * A host with several A records is only as safe as its worst one, so any
+     * private address in the set disqualifies the whole name.
+     */
+    public function test_a_hostname_with_one_private_address_among_several_is_refused(): void
+    {
+        $guard = new UrlGuard(false, [], static fn (string $host): array => ['93.184.216.34', '10.0.0.7']);
+
+        $this->expectException(BlockedUrlException::class);
+        $guard->validate('https://mixed.example/');
+    }
+
+    public function test_a_hostname_resolving_only_to_public_addresses_is_allowed(): void
+    {
+        $guard = new UrlGuard(false, [], static fn (string $host): array => ['93.184.216.34']);
+
+        $this->assertSame('https://ok.example/', $guard->validate('https://ok.example/'));
+    }
+
+    public function test_a_hostname_that_does_not_resolve_is_refused(): void
+    {
+        $guard = new UrlGuard(false, [], static fn (string $host): array => []);
+
+        $this->expectException(BlockedUrlException::class);
+        $guard->validate('https://nowhere.example/');
+    }
+
     private function expectExceptionOnValidate(string $url): void
     {
         try {

@@ -24,6 +24,12 @@ export const state = {
     undone: [],
     /** Not part of history — a variant being auditioned, discarded on commit. */
     preview: null,
+    /** Redline notes pinned to elements. Not edits, so not in the patch stack. */
+    annotations: [],
+    /** The snapshot markup, kept so before/after can rebuild an unedited copy. */
+    snapshot: null,
+    /** Per-element conversation, so "less rounded" knows what "less" means. */
+    conversations: new Map(),
     nextId: 1,
 };
 
@@ -38,16 +44,35 @@ function emit() {
     for (const fn of listeners) fn(state);
 }
 
-export function attachDocument(doc, view, frame, url) {
+export function attachDocument(doc, view, frame, url, snapshot = null) {
     state.doc = doc;
     state.view = view;
     state.frame = frame;
     state.url = url;
+    state.snapshot = snapshot;
     state.selected = null;
     state.patches = [];
     state.undone = [];
     state.preview = null;
+    state.annotations = [];
+    state.conversations = new Map();
     emit();
+}
+
+// ------------------------------------------------------------ conversations
+
+/** Remember what was asked for an element, so the next ask can build on it. */
+export function rememberTurn(uie, prompt, summary) {
+    if (!uie) return;
+
+    const turns = state.conversations.get(uie) || [];
+    turns.push({ prompt, summary });
+    // Only the last few matter, and each one costs tokens on every later ask.
+    state.conversations.set(uie, turns.slice(-4));
+}
+
+export function conversationFor(uie) {
+    return state.conversations.get(uie) || [];
 }
 
 // ------------------------------------------------------------------ patches
@@ -130,6 +155,25 @@ export function redo() {
     return true;
 }
 
+/**
+ * Accept or reject one element's worth of a change, without discarding the
+ * rest of it.
+ *
+ * A model rarely gets a whole section wrong — it gets one heading wrong. All
+ * or nothing forces you to undo good work to remove one bad rule.
+ */
+export function setRuleEnabled(patchId, uie, enabled) {
+    const patch = state.patches.find((entry) => entry.id === patchId);
+    if (!patch || patch.kind !== 'style') return;
+
+    const rule = patch.rules.find((entry) => entry.uie === uie);
+    if (!rule) return;
+
+    rule.enabled = enabled;
+    render();
+    emit();
+}
+
 export function clearPatches() {
     for (let i = state.patches.length - 1; i >= 0; i -= 1) revert(state.patches[i]);
     state.patches = [];
@@ -210,6 +254,10 @@ export function render() {
     for (const patch of all) {
         if (patch.kind && patch.kind !== 'style') continue;
         for (const rule of patch.rules || []) {
+            // A rule the user rejected in the review list stays in the patch
+            // (so it can be switched back on) but stops being rendered.
+            if (rule.enabled === false) continue;
+
             const selector = `[data-uie="${rule.uie}"]`.repeat(SELECTOR_REPEATS);
             const body = (rule.declarations || [])
                 .map(({ property, value }) => `  ${property}: ${value} !important;`)
@@ -275,7 +323,12 @@ export function saveSession() {
             JSON.stringify({
                 url: state.url,
                 savedAt: Date.now(),
-                patches: state.patches.filter((patch) => patch.kind === 'style'),
+                // Every kind, not just style. Element ids are assigned in
+                // document order, so they line up again when the same page
+                // is reloaded — which is what makes text and markup edits
+                // restorable at all.
+                patches: state.patches,
+                annotations: state.annotations,
             })
         );
     } catch {
@@ -294,11 +347,49 @@ export function loadSession() {
     }
 }
 
-export function restorePatches(patches) {
-    state.patches = patches.map((patch) => ({ ...patch, id: state.nextId++ }));
+/**
+ * Replay a saved session onto a freshly loaded page.
+ *
+ * Style patches only need the stylesheet rebuilt. Text and markup patches
+ * changed the DOM, so they have to be re-applied node by node — and any whose
+ * target no longer exists (the page changed since you saved) is dropped rather
+ * than silently mis-applied to whatever now holds that id.
+ *
+ * @returns {{restored: number, skipped: number}}
+ */
+export function restoreSession(patches, annotations = []) {
+    const kept = [];
+    let skipped = 0;
+
+    for (const patch of patches) {
+        if (patch.kind === 'style') {
+            kept.push({ ...patch, id: state.nextId++ });
+            continue;
+        }
+
+        const node = find(patch.uie);
+        if (!node) {
+            skipped += 1;
+            continue;
+        }
+
+        if (patch.kind === 'text') {
+            node.textContent = patch.after;
+        } else if (patch.kind === 'html') {
+            node.outerHTML = patch.after;
+        }
+
+        kept.push({ ...patch, id: state.nextId++ });
+    }
+
+    state.patches = kept;
     state.undone = [];
+    state.annotations = (annotations || []).filter((note) => find(note.uie));
+
     render();
     emit();
+
+    return { restored: kept.length, skipped };
 }
 
 export function forgetSession() {

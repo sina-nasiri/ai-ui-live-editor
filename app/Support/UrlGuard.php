@@ -56,6 +56,15 @@ class UrlGuard
         private readonly bool $allowPrivateNetworks = false,
         /** @var list<string> */
         private readonly array $allowedHosts = [],
+        /**
+         * Hostname to IP addresses. Injectable so the test suite does not
+         * depend on live DNS — a suite that only passes with a working
+         * resolver is a suite contributors cannot run on a train, and one
+         * that goes red in CI for reasons unrelated to the code.
+         *
+         * @var (\Closure(string): list<string>)|null
+         */
+        private readonly ?\Closure $resolver = null,
     ) {}
 
     public static function fromConfig(): self
@@ -171,8 +180,14 @@ class UrlGuard
      */
     private function resolve(string $host): array
     {
+        // A literal address needs no lookup — and this is the path every
+        // SSRF test takes, so those stay exact regardless of the resolver.
         if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
             return [$host];
+        }
+
+        if ($this->resolver !== null) {
+            return array_values(($this->resolver)($host));
         }
 
         $addresses = [];

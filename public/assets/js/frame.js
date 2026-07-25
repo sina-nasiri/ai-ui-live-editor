@@ -21,6 +21,8 @@ let hoverBox = null;
 let selectBox = null;
 let onSelect = () => {};
 let onKey = () => {};
+let intercept = () => false;
+const reflowHooks = [];
 
 /** Never selectable: structural, invisible, or ours. */
 const SKIP = new Set(['html', 'head', 'meta', 'title', 'link', 'style', 'script', 'base', 'br']);
@@ -39,6 +41,21 @@ export function onSelectionChange(fn) {
  */
 export function onKeyDown(fn) {
     onKey = fn;
+}
+
+/**
+ * Let another mode take a click before selection does.
+ *
+ * Annotation mode uses this: while it is on, clicking pins a note instead of
+ * selecting. Returning true from the interceptor consumes the click.
+ */
+export function onClickIntercept(fn) {
+    intercept = fn;
+}
+
+/** Called after every reflow so overlays that track elements stay attached. */
+export function onReflow(fn) {
+    reflowHooks.push(fn);
 }
 
 /**
@@ -64,10 +81,19 @@ export function loadSnapshot(frame, html, url) {
                 const view = frame.contentWindow;
                 if (!doc || !doc.body) throw new Error('The preview document did not initialise.');
 
-                attachDocument(doc, view, frame, url);
+                // Order matters. Indexing has to finish before anything is
+                // told the document is ready, because session restore replays
+                // text and markup edits by element id the moment it hears
+                // about a new document — and with no ids yet, every one of
+                // them looks like a target that no longer exists.
+                idCounter = 0;
                 indexElements(doc);
                 installOverlays(doc);
                 installListeners(doc, view);
+
+                // The markup is kept so before/after can rebuild an unedited
+                // copy without a second network request.
+                attachDocument(doc, view, frame, url, html);
                 resolve(doc);
             } catch (error) {
                 reject(error);
@@ -85,6 +111,10 @@ export function loadSnapshot(frame, html, url) {
  * These ids are the vocabulary the AI speaks: it never sees a CSS selector,
  * only "e42". That makes its output impossible to misapply to the wrong node,
  * and trivial to validate server-side.
+ *
+ * The counter is reset per page load, so numbering is a pure function of
+ * document order. That determinism is what lets a saved session find its
+ * elements again after a refresh.
  */
 export function indexElements(doc, root = doc.body) {
     const nodes = root === doc.body ? doc.body.querySelectorAll('*') : [root, ...root.querySelectorAll('*')];
@@ -157,7 +187,12 @@ function installListeners(doc, view) {
             if (event.target && event.target.isContentEditable) return;
 
             const target = pick(event.target);
-            if (target) select(target);
+            if (!target) return;
+
+            // Another mode may want this click instead of selection.
+            if (intercept(target, event)) return;
+
+            select(target);
         },
         true
     );
@@ -165,6 +200,7 @@ function installListeners(doc, view) {
     const reflow = onFrame(() => {
         if (state.selected) position(selectBox, state.selected, view);
         hide(hoverBox);
+        for (const hook of reflowHooks) hook();
     });
 
     view.addEventListener('scroll', reflow, true);

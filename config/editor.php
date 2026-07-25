@@ -23,6 +23,9 @@ return [
         // Hard ceiling on the size of a fetched page, in bytes.
         'max_bytes' => (int) env('EDITOR_PROXY_MAX_BYTES', 5 * 1024 * 1024),
 
+        // Ceiling for a single relayed stylesheet, image or font.
+        'max_asset_bytes' => (int) env('EDITOR_PROXY_MAX_ASSET_BYTES', 3 * 1024 * 1024),
+
         'max_redirects' => (int) env('EDITOR_PROXY_MAX_REDIRECTS', 5),
 
         // Cache proxied pages for this many seconds (0 disables caching).
@@ -113,6 +116,23 @@ return [
             ],
         ],
 
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pricing
+    |--------------------------------------------------------------------------
+    |
+    | US dollars per million tokens, used only to show a running cost in the
+    | UI. Vendors change these; the editor treats a missing entry as "unknown"
+    | and shows token counts without a price rather than inventing one.
+    |
+    */
+
+    'pricing' => [
+        'claude-opus-5' => ['input' => 5.00, 'output' => 25.00],
+        'claude-sonnet-5' => ['input' => 3.00, 'output' => 15.00],
+        'claude-haiku-4-5' => ['input' => 1.00, 'output' => 5.00],
     ],
 
     /*

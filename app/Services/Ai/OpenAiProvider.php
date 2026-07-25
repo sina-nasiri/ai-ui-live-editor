@@ -39,6 +39,11 @@ class OpenAiProvider extends BaseProvider
         $body = $response->json();
         $choice = $body['choices'][0] ?? [];
 
+        $this->recordUsage(
+            (int) ($body['usage']['prompt_tokens'] ?? 0),
+            (int) ($body['usage']['completion_tokens'] ?? 0)
+        );
+
         if (($choice['finish_reason'] ?? null) === 'length') {
             throw new AiException('The reply was cut off. Select a smaller element or ask for a narrower change.', 422);
         }

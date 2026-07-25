@@ -52,6 +52,15 @@ class AnthropicProvider extends BaseProvider
 
         $body = $response->json();
 
+        // Cache reads and writes are billed differently but still count as
+        // input; folding them in keeps the running total honest.
+        $this->recordUsage(
+            (int) ($body['usage']['input_tokens'] ?? 0)
+                + (int) ($body['usage']['cache_read_input_tokens'] ?? 0)
+                + (int) ($body['usage']['cache_creation_input_tokens'] ?? 0),
+            (int) ($body['usage']['output_tokens'] ?? 0)
+        );
+
         // Safety classifiers can decline a request with a normal 200 and an
         // empty content array — reading content[0] blindly would break here.
         if (($body['stop_reason'] ?? null) === 'refusal') {

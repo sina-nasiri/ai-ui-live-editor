@@ -156,7 +156,7 @@ class AiController extends Controller
     // ------------------------------------------------------------- helpers
 
     /**
-     * @return array{prompt:string,outline:string,theme:?string}
+     * @return array{prompt:string,outline:string,theme:?string,history:list<array{prompt:string,summary:string}>}
      */
     private function validateEdit(Request $request, bool $promptRequired = true): array
     {
@@ -164,25 +164,57 @@ class AiController extends Controller
             'prompt' => [$promptRequired ? 'required' : 'nullable', 'string', 'max:'.config('editor.limits.max_prompt_chars', 2000)],
             'outline' => ['required', 'string', 'max:40000'],
             'theme' => ['nullable', 'string', 'max:4000'],
+            'history' => ['nullable', 'array', 'max:6'],
+            'history.*.prompt' => ['nullable', 'string', 'max:1000'],
+            'history.*.summary' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        $history = [];
+        foreach ((array) ($validated['history'] ?? []) as $turn) {
+            $prompt = trim((string) ($turn['prompt'] ?? ''));
+            if ($prompt === '') {
+                continue;
+            }
+            $history[] = ['prompt' => $prompt, 'summary' => trim((string) ($turn['summary'] ?? ''))];
+        }
 
         return [
             'prompt' => (string) ($validated['prompt'] ?? ''),
             'outline' => $validated['outline'],
             'theme' => $validated['theme'] ?? null,
+            'history' => $history,
         ];
     }
 
     /**
-     * @param  array{prompt:string,outline:string,theme:?string}  $input
+     * @param  array{prompt:string,outline:string,theme:?string,history:list<array{prompt:string,summary:string}>}  $input
      */
     private function buildPrompt(array $input, string $fallbackPrompt = ''): string
     {
         $prompt = $input['prompt'] !== '' ? $input['prompt'] : $fallbackPrompt;
 
-        return "Design tokens on this page:\n".($input['theme'] ?: 'not detected')
-            ."\n\nSelected element outline:\n".$input['outline']
-            ."\n\nRequest: ".$prompt;
+        $sections = [
+            "Design tokens on this page:\n".($input['theme'] ?: 'not detected'),
+            "Selected element outline (this already reflects every earlier edit):\n".$input['outline'],
+        ];
+
+        // Without this, "no, less rounded" is meaningless — each request
+        // started from zero and the model had no idea what "less" referred to.
+        if ($input['history'] !== []) {
+            $lines = ['Earlier requests for this same element, oldest first:'];
+            foreach ($input['history'] as $index => $turn) {
+                $lines[] = sprintf('%d. Asked: "%s"', $index + 1, $turn['prompt']);
+                if ($turn['summary'] !== '') {
+                    $lines[] = '   You did: '.$turn['summary'];
+                }
+            }
+            $lines[] = 'Treat the new request as a refinement of that work, not a fresh start.';
+            $sections[] = implode("\n", $lines);
+        }
+
+        $sections[] = 'Request: '.$prompt;
+
+        return implode("\n\n", $sections);
     }
 
     /**
@@ -236,9 +268,41 @@ class AiController extends Controller
 
             $payload = $callback($provider, $model);
 
-            return response()->json(['ok' => true, 'model' => $model] + $payload);
+            return response()->json([
+                'ok' => true,
+                'model' => $model,
+                'usage' => $this->usage($provider->lastUsage(), $model),
+            ] + $payload);
         } catch (AiException $e) {
             return response()->json(['error' => $e->getMessage()], $e->status());
         }
+    }
+
+    /**
+     * Token counts plus a cost, when we have a published price for the model.
+     *
+     * A wrong number here is worse than no number — someone budgeting a
+     * research sprint would act on it — so an unpriced model reports its
+     * tokens with a null cost rather than a guess.
+     *
+     * @param  array{input:int,output:int}  $usage
+     * @return array<string,mixed>
+     */
+    private function usage(array $usage, string $model): array
+    {
+        $price = config('editor.pricing.'.$model);
+
+        $cost = null;
+        if (is_array($price)) {
+            $cost = ($usage['input'] / 1_000_000) * (float) $price['input']
+                + ($usage['output'] / 1_000_000) * (float) $price['output'];
+            $cost = round($cost, 6);
+        }
+
+        return [
+            'input_tokens' => $usage['input'],
+            'output_tokens' => $usage['output'],
+            'cost_usd' => $cost,
+        ];
     }
 }

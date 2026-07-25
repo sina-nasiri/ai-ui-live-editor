@@ -9,11 +9,27 @@ use Illuminate\Support\Facades\Log;
 
 abstract class BaseProvider implements AiProvider
 {
+    /** @var array{input:int,output:int} */
+    protected array $usage = ['input' => 0, 'output' => 0];
+
     public function __construct(
         protected readonly string $apiKey,
         /** @var array<string,mixed> */
         protected readonly array $config,
     ) {}
+
+    /**
+     * @return array{input:int,output:int}
+     */
+    public function lastUsage(): array
+    {
+        return $this->usage;
+    }
+
+    protected function recordUsage(int $input, int $output): void
+    {
+        $this->usage = ['input' => max(0, $input), 'output' => max(0, $output)];
+    }
 
     protected function request(): PendingRequest
     {
