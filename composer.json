@@ -1,12 +1,24 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "sina-nasiri/ai-ui-live-editor",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "Redline and redesign any live website with AI \u2014 a visual editor for UI and UX work.",
+    "keywords": [
+        "ux",
+        "ui",
+        "design",
+        "ai",
+        "claude",
+        "openai",
+        "gemini",
+        "prototyping",
+        "accessibility"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "ext-dom": "*",
+        "ext-libxml": "*",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1"
     },
@@ -21,9 +33,7 @@
     },
     "autoload": {
         "psr-4": {
-            "App\\": "app/",
-            "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/"
+            "App\\": "app/"
         }
     },
     "autoload-dev": {
@@ -35,14 +45,10 @@
         "setup": [
             "composer install",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
-            "@php artisan key:generate",
-            "@php artisan migrate --force",
-            "npm install",
-            "npm run build"
+            "@php artisan key:generate"
         ],
         "dev": [
-            "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+            "@php artisan serve"
         ],
         "test": [
             "@php artisan config:clear --ansi",
@@ -58,13 +64,11 @@
         "post-root-package-install": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
         ],
-        "post-create-project-cmd": [
-            "@php artisan key:generate --ansi",
-            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
-            "@php artisan migrate --graceful --ansi"
-        ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "lint": [
+            "@php vendor/bin/pint"
         ]
     },
     "extra": {

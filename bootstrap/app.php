@@ -14,5 +14,13 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // An API key arrives in the request body on every AI call. Without
+        // this it would be flashed to the session — and rendered on the
+        // debug error page — the first time a request threw.
+        $exceptions->dontFlash([
+            'api_key',
+            'current_password',
+            'password',
+            'password_confirmation',
+        ]);
     })->create();

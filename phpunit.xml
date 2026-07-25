@@ -19,17 +19,26 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
-        <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- The editor stores nothing, so tests need no database at all. -->
+
+        <!-- Pin the proxy's security posture. A developer with
+             EDITOR_ALLOW_PRIVATE_NETWORKS=true in their local .env would
+             otherwise turn the SSRF tests into no-ops that still pass. -->
+        <env name="EDITOR_ALLOW_PRIVATE_NETWORKS" value="false" force="true"/>
+        <env name="EDITOR_ALLOWED_HOSTS" value="" force="true"/>
+        <env name="EDITOR_VERIFY_SSL" value="true" force="true"/>
+        <env name="EDITOR_PROXY_CACHE_TTL" value="0" force="true"/>
+
+        <!-- Likewise force the browser-supplied-key path, so a real key in
+             .env cannot make the AI tests exercise a different code path. -->
+        <env name="EDITOR_ALLOW_CLIENT_KEYS" value="true" force="true"/>
+        <env name="ANTHROPIC_API_KEY" value="" force="true"/>
+        <env name="OPENAI_API_KEY" value="" force="true"/>
+        <env name="GEMINI_API_KEY" value="" force="true"/>
     </php>
 </phpunit>

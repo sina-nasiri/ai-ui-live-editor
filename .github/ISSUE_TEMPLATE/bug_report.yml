@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in the editor does not work as expected
+labels: [bug]
+
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: Page you loaded
+      description: >
+        If it is public, paste the URL. Most bugs here are "this specific site
+        renders wrong", and having the actual page usually turns a day of
+        guessing into a five-minute fix.
+      placeholder: https://example.com/pricing
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: AI provider
+      description: Leave blank if the bug has nothing to do with an AI request.
+      options:
+        - Not AI related
+        - Claude
+        - OpenAI
+        - Gemini
+
+  - type: input
+    id: version
+    attributes:
+      label: PHP version
+      placeholder: "8.3"
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console output
+      description: Anything red in the developer console.
+      render: text
+
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Confirmation
+      options:
+        - label: This is not a security vulnerability (those go through SECURITY.md, privately)
+          required: true
