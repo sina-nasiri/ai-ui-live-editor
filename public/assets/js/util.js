@@ -67,15 +67,37 @@ export function isEditorChrome(node) {
     return Boolean(node && node.closest && node.closest('.uie-box'));
 }
 
+/**
+ * Machine-generated class and id names, which tell a human nothing.
+ *
+ * Real pages are full of them — `variant-3a93a82b4cc04b3586052668ee0aa634`
+ * from a visual builder, `Button_root__x7f2a` from CSS modules, `css-1q2w3e`
+ * from emotion, `sc-bdVaJa` from styled-components. Left in, one of them fills
+ * the breadcrumb and hides the ancestors you were trying to click. Hand-written
+ * names — including Tailwind's `font-bold text-2xl` — have to survive, because
+ * those are the ones worth reading.
+ */
+function looksGenerated(name) {
+    // A long run of hex is the giveaway, but it has to contain a digit to
+    // count: "facade", "decade" and "accede" are all valid hex and all things
+    // someone typed on purpose.
+    const hex = name.match(/[0-9a-f]{6,}/i);
+
+    return name.length > 24
+        || (hex !== null && /\d/.test(hex[0]))
+        || /__[a-z0-9]{4,}$/i.test(name)
+        || /^(css|sc|jsx|emotion)-[a-z0-9]{4,}$/i.test(name);
+}
+
 /** A short, readable label for an element — "section.hero" or "h1#title". */
 export function describe(node) {
     if (!node || !node.tagName) return '';
     const tag = node.tagName.toLowerCase();
-    if (node.id) return `${tag}#${node.id}`;
+    if (node.id && !looksGenerated(node.id)) return `${tag}#${node.id}`;
 
     const classes = String(node.getAttribute('class') || '')
         .split(/\s+/)
-        .filter((name) => name && !name.startsWith('editor-'))
+        .filter((name) => name && !name.startsWith('editor-') && !looksGenerated(name))
         .slice(0, 2);
 
     return classes.length ? `${tag}.${classes.join('.')}` : tag;

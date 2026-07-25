@@ -181,10 +181,14 @@ class PageSnapshot
         }
 
         // Preloads and prefetches for scripts or documents are pure noise now.
+        // Images are not: `<link rel="preload" as="image" imagesrcset>` is how
+        // frameworks preload the hero, and it is usually the one image a
+        // reviewer looks at first.
         foreach ($this->collect($xpath, '//link[@rel]') as $link) {
             $rel = strtolower($link->getAttribute('rel'));
             $as = strtolower($link->getAttribute('as'));
-            if (in_array($rel, ['preload', 'prefetch', 'modulepreload', 'prerender'], true) && $as !== 'style' && $as !== 'font') {
+            if (in_array($rel, ['preload', 'prefetch', 'modulepreload', 'prerender'], true)
+                && ! in_array($as, ['style', 'font', 'image'], true)) {
                 $link->parentNode?->removeChild($link);
             }
         }
@@ -254,25 +258,57 @@ class PageSnapshot
     }
 
     /**
-     * `srcset` is a comma-separated list of "url descriptor" pairs. Missing it
-     * is why responsive images break on most naive proxies.
+     * `srcset` is a list of "url descriptor" pairs. Missing it is why
+     * responsive images break on most naive proxies.
+     *
+     * Splitting the list on commas looks obvious and is wrong: in the HTML
+     * spec a candidate's URL runs to the next *whitespace*, so commas inside
+     * it are perfectly legal. Every CDN that encodes transforms in the path
+     * relies on that — Cloudflare's `/cdn-cgi/image/width=256,quality=80/`,
+     * Cloudinary, Imgix. Splitting on the comma shreds one URL into three
+     * fragments, which then resolve against the page as relative paths and
+     * 404. Only a trailing comma actually ends a candidate.
      */
     private function rewriteSrcset(string $value, UrlResolver $resolver): string
     {
-        $candidates = preg_split('/\s*,\s*/', trim($value)) ?: [];
+        $whitespace = " \t\n\r\f";
+        $length = strlen($value);
+        $position = 0;
+        $candidates = [];
 
-        $rewritten = array_map(static function (string $candidate) use ($resolver): string {
-            $parts = preg_split('/\s+/', trim($candidate), 2) ?: [];
-            if ($parts === [] || $parts[0] === '') {
-                return $candidate;
+        while ($position < $length) {
+            // Whitespace and empty candidates between entries.
+            $position += strspn($value, $whitespace.',', $position);
+
+            if ($position >= $length) {
+                break;
             }
 
-            $url = $resolver->resolve($parts[0]);
+            $urlStart = $position;
+            $position += strcspn($value, $whitespace, $position);
+            $url = substr($value, $urlStart, $position - $urlStart);
 
-            return isset($parts[1]) ? $url.' '.$parts[1] : $url;
-        }, $candidates);
+            // A trailing comma is the separator, and means this candidate
+            // carries no descriptor.
+            $ended = str_ends_with($url, ',');
+            $url = rtrim($url, ',');
+            $descriptor = '';
 
-        return implode(', ', $rewritten);
+            if (! $ended) {
+                $descriptorStart = $position;
+                $position += strcspn($value, ',', $position);
+                $descriptor = trim(substr($value, $descriptorStart, $position - $descriptorStart));
+            }
+
+            if ($url === '') {
+                continue;
+            }
+
+            $resolved = $resolver->resolve($url);
+            $candidates[] = $descriptor === '' ? $resolved : $resolved.' '.$descriptor;
+        }
+
+        return implode(', ', $candidates);
     }
 
     private function rewriteStyles(DOMXPath $xpath, UrlResolver $resolver): void
@@ -339,6 +375,8 @@ class PageSnapshot
             }
         }
 
+        $this->routeSvgSprites($xpath);
+
         // An @import inside an inline <style> pulls in a second sheet that
         // would be cross-origin all over again.
         foreach ($this->collect($xpath, '//style') as $style) {
@@ -347,6 +385,45 @@ class PageSnapshot
                 fn (array $m): string => '@import url("'.$this->proxied($m[2]).'")',
                 $style->textContent
             ) ?? $style->textContent;
+        }
+    }
+
+    /**
+     * Point SVG sprite references at the relay.
+     *
+     * `<use href="/icons.svg#cart">` is how most design systems ship icons,
+     * and it is subject to a restriction stricter than CORS: an external
+     * `<use>` target must be *same-origin*, full stop — no header can grant
+     * it. The preview runs from a blob: URL, so every sprite on a real site
+     * fails with "Domains, protocols and ports must match" and the page loses
+     * every chevron, arrow and tick at once.
+     *
+     * Relaying the sprite fixes it, but the fragment has to stay on the
+     * outside of the relay URL: the browser fetches `/asset?u=…` and then
+     * resolves `#cart` against the document that comes back. Folding the
+     * fragment into the query would ask the relay for a file that has one.
+     */
+    private function routeSvgSprites(DOMXPath $xpath): void
+    {
+        foreach ($this->collect($xpath, '//*[local-name()="use"]') as $use) {
+            foreach (['href', 'xlink:href'] as $attribute) {
+                $value = trim($use->getAttribute($attribute));
+
+                // A bare fragment targets a sprite inlined in this same
+                // document. It is already same-origin; relaying it would
+                // break it.
+                if ($value === '' || str_starts_with($value, '#') || str_starts_with($value, 'data:')) {
+                    continue;
+                }
+
+                $fragment = '';
+                if (($hash = strpos($value, '#')) !== false) {
+                    $fragment = substr($value, $hash);
+                    $value = substr($value, 0, $hash);
+                }
+
+                $use->setAttribute($attribute, $this->proxied($value).$fragment);
+            }
         }
     }
 

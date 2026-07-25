@@ -231,6 +231,99 @@ class RealWorldMarkupTest extends TestCase
     }
 
     /**
+     * Splitting a srcset on commas is the obvious implementation and it is
+     * wrong. A candidate's URL runs to the next *whitespace*; commas inside it
+     * are legal, and every CDN that encodes transforms in the path uses them.
+     * Getting this wrong shredded one Cloudflare URL into three broken ones.
+     */
+    public function test_srcset_urls_containing_commas_survive_intact(): void
+    {
+        $output = $this->build(
+            '<img srcset="https://cdn.test/cdn-cgi/image/width=256,quality=80,format=auto/a.png 1x, '
+            .'https://cdn.test/cdn-cgi/image/width=640,quality=80,format=auto/a.png 2x">'
+        );
+
+        $this->assertStringContainsString('https://cdn.test/cdn-cgi/image/width=256,quality=80,format=auto/a.png 1x', $output);
+        $this->assertStringContainsString('https://cdn.test/cdn-cgi/image/width=640,quality=80,format=auto/a.png 2x', $output);
+        // The old splitter turned each comma into a candidate boundary and
+        // then resolved the fragments against the page.
+        $this->assertStringNotContainsString('shop.example.com/quality=80', $output);
+        $this->assertStringNotContainsString('shop.example.com/format=auto', $output);
+    }
+
+    public function test_srcset_relative_urls_with_commas_resolve_once(): void
+    {
+        $output = $this->build('<img srcset="/i/w=10,q=5/a.png 1x, /i/w=20,q=5/a.png 2x">');
+
+        $this->assertStringContainsString('https://shop.example.com/i/w=10,q=5/a.png 1x', $output);
+        $this->assertStringContainsString('https://shop.example.com/i/w=20,q=5/a.png 2x', $output);
+    }
+
+    /**
+     * A trailing comma ends a candidate and means it carries no descriptor.
+     * A comma with no whitespace after it does not end anything — it is just
+     * part of the URL, which is the whole reason CDN transform paths work.
+     * Both behaviours here were checked against Chromium's `currentSrc`.
+     */
+    public function test_srcset_candidate_boundaries_match_the_browser(): void
+    {
+        $trailing = $this->build('<img srcset="/a.png, /b.png 2x">');
+        $this->assertStringContainsString('https://shop.example.com/a.png,', $trailing);
+        $this->assertStringContainsString('https://shop.example.com/b.png 2x', $trailing);
+
+        // No whitespace after the comma: one URL, not two.
+        $joined = $this->build('<img srcset="/a.png,/b.png 2x">');
+        $this->assertStringContainsString('https://shop.example.com/a.png,/b.png 2x', $joined);
+    }
+
+    /**
+     * An external `<use>` target must be same-origin — stricter than CORS, and
+     * no header can grant it. The preview is a blob: URL, so an un-relayed
+     * sprite costs the page every icon it has.
+     */
+    public function test_external_svg_sprites_are_routed_through_the_relay(): void
+    {
+        $output = $this->build('<svg><use href="/icons.svg#cart"></use></svg>');
+
+        $this->assertStringContainsString('asset?u='.urlencode('https://shop.example.com/icons.svg'), $output);
+        // The fragment must stay outside the query, or the relay is asked for
+        // a file whose name contains "#cart".
+        $this->assertStringContainsString('#cart', $output);
+        $this->assertStringNotContainsString('%23cart', $output);
+    }
+
+    public function test_legacy_xlink_sprite_references_are_routed_too(): void
+    {
+        $output = $this->build('<svg><use xlink:href="https://cdn.example.com/s.svg#x"></use></svg>');
+
+        $this->assertStringContainsString('asset?u='.urlencode('https://cdn.example.com/s.svg'), $output);
+    }
+
+    /**
+     * A bare fragment points at a sprite inlined in this same document. It is
+     * already same-origin, and relaying it would break it.
+     */
+    public function test_inline_sprite_references_are_left_alone(): void
+    {
+        $output = $this->build('<svg><symbol id="cart"></symbol></svg><svg><use href="#cart"></use></svg>');
+
+        $this->assertStringContainsString('href="#cart"', $output);
+        $this->assertStringNotContainsString('asset?u=', $output);
+    }
+
+    /**
+     * Frameworks preload the hero image this way, and the hero is usually the
+     * first thing a reviewer looks at.
+     */
+    public function test_image_preloads_survive_and_their_imagesrcset_is_resolved(): void
+    {
+        $output = $this->build('<link rel="preload" as="image" imagesrcset="/hero.png 1x, /hero@2x.png 2x">');
+
+        $this->assertStringContainsString('https://shop.example.com/hero.png 1x', $output);
+        $this->assertStringContainsString('https://shop.example.com/hero@2x.png 2x', $output);
+    }
+
+    /**
      * A realistic page pulls all of these at once; the combination is where
      * ordering bugs between the rewrite passes show up.
      */
